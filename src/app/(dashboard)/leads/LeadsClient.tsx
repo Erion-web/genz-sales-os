@@ -80,7 +80,7 @@ export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) 
   const closedValue = filtered.filter(l => l.stage === 'Closed').reduce((sum, l) => sum + getDealValue(l), 0)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-heading text-2xl font-bold text-tx">All Leads</h1>

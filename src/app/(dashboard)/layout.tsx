@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import Sidebar from '@/components/layout/Sidebar'
+import DashboardShell from '@/components/layout/DashboardShell'
 import { Profile } from '@/types'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -17,7 +17,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', user.id)
     .single()
 
-  // Always sync Google name/avatar from auth metadata so the sidebar stays fresh
   const meta = user.user_metadata ?? {}
   const full_name =
     meta.full_name ||
@@ -28,7 +27,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     'User'
   const avatar_url = meta.avatar_url || meta.picture || existingProfile?.avatar_url || null
 
-  // Upsert so every page load keeps the profile in sync with Google
   const { data: profile } = await supabase
     .from('profiles')
     .upsert(
@@ -46,11 +44,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   } as Profile
 
   return (
-    <div className="flex min-h-screen bg-bg">
-      <Sidebar profile={merged} />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
+    <DashboardShell profile={merged}>
+      {children}
+    </DashboardShell>
   )
 }

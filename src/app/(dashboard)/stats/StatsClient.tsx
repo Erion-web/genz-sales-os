@@ -17,18 +17,27 @@ import { subDays, format, startOfWeek, startOfMonth } from 'date-fns'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend, Title)
 
+// Blue family palette for all charts
+const BLUE  = '#2563EB'
+const BLUE2 = '#3B82F6'
+const BLUE3 = '#93C5FD'
+const TEAL  = '#0284C7'
+const SLATE = '#64748B'
+
 const chartDefaults = {
   plugins: {
-    legend: { labels: { color: '#a0a0b8', font: { family: 'DM Mono' } } },
+    legend: { labels: { color: '#667085', font: { family: 'DM Mono', size: 11 } } },
   },
   scales: {
     x: {
-      ticks: { color: '#666680', font: { family: 'DM Mono', size: 11 } },
-      grid: { color: '#2a2a3a' },
+      ticks: { color: '#98A2B3', font: { family: 'DM Mono', size: 11 } },
+      grid: { color: '#F3F6FA' },
+      border: { color: '#E6EAF0' },
     },
     y: {
-      ticks: { color: '#666680', font: { family: 'DM Mono', size: 11 } },
-      grid: { color: '#2a2a3a' },
+      ticks: { color: '#98A2B3', font: { family: 'DM Mono', size: 11 } },
+      grid: { color: '#F3F6FA' },
+      border: { color: '#E6EAF0' },
     },
   },
 }
@@ -88,9 +97,9 @@ export default function StatsClient({
     datasets: [{
       label: 'Touchpoints',
       data: last7Days.map(d =>
-        activities.filter(a => a.created_at.startsWith(d)).length
+        filteredActivities.filter(a => a.created_at.startsWith(d)).length
       ),
-      backgroundColor: '#7c6af7',
+      backgroundColor: BLUE,
       borderRadius: 6,
     }],
   }
@@ -104,7 +113,7 @@ export default function StatsClient({
     labels: ['Inbound', 'Outbound', 'Unknown'],
     datasets: [{
       data: [inbound, outbound, filteredLeads.length - inbound - outbound],
-      backgroundColor: ['#3ecf8e', '#7c6af7', '#666680'],
+      backgroundColor: ['#16A34A', BLUE, SLATE],
       borderWidth: 0,
     }],
   }
@@ -116,7 +125,7 @@ export default function StatsClient({
       label: 'Leads',
       data: STAGES.map(s => filteredLeads.filter(l => l.stage === s).length),
       backgroundColor: [
-        '#4d9fff', '#7c6af7', '#f5a623', '#f5a623', '#3ecf8e', '#3ecf8e', '#666680',
+        BLUE, BLUE2, TEAL, TEAL, BLUE3, BLUE3, SLATE,
       ],
       borderRadius: 4,
     }],
@@ -133,7 +142,7 @@ export default function StatsClient({
         filteredLeads.filter(l => l.deal_type === 'project' && l.stage === 'Closed')
           .reduce((sum, l) => sum + getDealValue(l), 0),
       ],
-      backgroundColor: ['#7c6af7', '#4d9fff'],
+      backgroundColor: [BLUE, TEAL],
       borderRadius: 6,
     }],
   }
@@ -167,8 +176,8 @@ export default function StatsClient({
     datasets: [{
       data: Object.values(sourceCounts),
       backgroundColor: [
-        '#7c6af7', '#4d9fff', '#3ecf8e', '#f5a623', '#ff4d4d',
-        '#a855f7', '#06b6d4', '#10b981',
+        BLUE, TEAL, BLUE2, BLUE3, SLATE,
+        '#0EA5E9', '#38BDF8', '#7DD3FC',
       ],
       borderWidth: 0,
     }],
@@ -184,22 +193,22 @@ export default function StatsClient({
   const ranges: Range[] = ['today', 'week', 'month', 'all']
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <h1 className="font-heading text-2xl font-bold text-tx">Statistics</h1>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-4 md:mb-6 flex-wrap gap-3">
+        <h1 className="font-heading text-xl md:text-2xl font-bold text-tx">Statistics</h1>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap w-full md:w-auto">
           {/* Range filter */}
-          <div className="flex bg-surface border border-border rounded-lg overflow-hidden">
+          <div className="flex bg-surface border border-border rounded-lg overflow-hidden flex-1 md:flex-none">
             {ranges.map(r => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
-                className={`px-3 py-1.5 text-xs capitalize transition-all ${
+                className={`flex-1 md:flex-none px-2 md:px-3 py-1.5 text-xs capitalize transition-all ${
                   range === r ? 'bg-accent text-white' : 'text-tx-3 hover:text-tx'
                 }`}
               >
-                {r === 'all' ? 'All time' : r === 'week' ? 'This week' : r === 'today' ? 'Today' : 'This month'}
+                {r === 'all' ? 'All' : r === 'week' ? 'Week' : r === 'today' ? 'Today' : 'Month'}
               </button>
             ))}
           </div>
@@ -208,7 +217,7 @@ export default function StatsClient({
           <select
             value={personFilter}
             onChange={e => setPersonFilter(e.target.value)}
-            className="w-44 py-1.5 text-xs"
+            className="w-full md:w-44 py-1.5 text-xs"
           >
             <option value="">All team</option>
             {profiles.map(p => (
@@ -219,7 +228,7 @@ export default function StatsClient({
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="card p-4">
           <p className="text-xs text-tx-3 uppercase tracking-wider">Leads</p>
           <p className="font-heading text-2xl font-bold text-accent mt-1">{filteredLeads.length}</p>
@@ -239,7 +248,7 @@ export default function StatsClient({
       </div>
 
       {/* Charts grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
         {/* Contacts per day */}
         <div className="card p-5">
           <h3 className="font-heading font-semibold text-sm text-tx mb-4">Touchpoints (last 7 days)</h3>
@@ -293,7 +302,7 @@ export default function StatsClient({
 
       {/* Source breakdown */}
       {Object.keys(sourceCounts).length > 0 && (
-        <div className="card p-5 mb-6">
+        <div className="card p-4 md:p-5 mb-4 md:mb-6">
           <h3 className="font-heading font-semibold text-sm text-tx mb-4">Leads by Source</h3>
           <div className="flex items-center justify-center">
             <div className="w-64 h-64">

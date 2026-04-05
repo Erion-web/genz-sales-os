@@ -60,7 +60,7 @@ export default function LeadDetail({ lead: initialLead, activities: initialActiv
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-tx-3 mb-6">
         <Link href="/leads" className="hover:text-tx transition-colors">All Leads</Link>
