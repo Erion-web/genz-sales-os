@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import BottomNav from './BottomNav'
+import RealtimeRefresher from './RealtimeRefresher'
 import { Profile } from '@/types'
 
 export default function DashboardShell({
@@ -25,6 +26,7 @@ export default function DashboardShell({
         </main>
       </div>
       <BottomNav />
+      <RealtimeRefresher />
     </div>
   )
 }
