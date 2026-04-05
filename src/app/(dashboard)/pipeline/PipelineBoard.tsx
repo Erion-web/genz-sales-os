@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Lead, Stage, STAGES, getDealValue, formatCurrency, STAGE_COLORS, INTENT_COLORS } from '@/types'
+import { Lead, Stage, STAGES, getDealValue, formatCurrency, INTENT_COLORS } from '@/types'
 import LeadForm from '@/components/leads/LeadForm'
 import { useRouter } from 'next/navigation'
 
@@ -99,12 +99,11 @@ function LeadCard({ lead, onStageChange }: { lead: Lead; onStageChange: (id: str
 
 export default function PipelineBoard({
   grouped: initialGrouped,
-  stageTotals: initialTotals,
 }: {
   grouped: Record<Stage, Lead[]>
-  stageTotals: Record<Stage, number>
 }) {
   const [grouped, setGrouped] = useState(initialGrouped)
+  useEffect(() => { setGrouped(initialGrouped) }, [initialGrouped])
   const [showForm, setShowForm] = useState(false)
   const router = useRouter()
 

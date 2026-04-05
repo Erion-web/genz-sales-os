@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Lead, STAGES, Stage, getDealValue, formatCurrency, STAGE_COLORS, INTENT_COLORS } from '@/types'
+import { Lead, STAGES, Stage } from '@/types'
 import PipelineBoard from './PipelineBoard'
 
 export default async function PipelinePage() {
@@ -15,10 +15,5 @@ export default async function PipelinePage() {
     return acc
   }, {} as Record<Stage, Lead[]>)
 
-  const stageTotals = STAGES.reduce((acc, stage) => {
-    acc[stage] = grouped[stage].reduce((sum, l) => sum + getDealValue(l), 0)
-    return acc
-  }, {} as Record<Stage, number>)
-
-  return <PipelineBoard grouped={grouped} stageTotals={stageTotals} />
+  return <PipelineBoard grouped={grouped} />
 }

@@ -1,14 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  Lead, Activity, Stage, getDealValue, formatCurrency, formatDate,
+  Lead, Stage, getDealValue, formatCurrency, formatDate,
   STAGE_COLORS, INTENT_COLORS, STAGES
 } from '@/types'
 import LeadForm from '@/components/leads/LeadForm'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 const intentEmoji: Record<string, string> = {
   cold: '🧊', warm: '🔥', hot: '🚀', urgent: '⚡',
@@ -21,16 +19,15 @@ function FollowupBadge({ date }: { date: string }) {
   return <span className="badge bg-success/10 text-success text-xs">{formatDate(date)}</span>
 }
 
-export default function MyLeadsClient({ leads: initialLeads, activities, userName }: {
+export default function MyLeadsClient({ leads: initialLeads, userName }: {
   leads: Lead[]
-  activities: Activity[]
   userName: string
 }) {
   const [leads, setLeads] = useState(initialLeads)
+  useEffect(() => { setLeads(initialLeads) }, [initialLeads])
   const [showForm, setShowForm] = useState(false)
   const [editLead, setEditLead] = useState<Lead | undefined>()
   const [stageFilter, setStageFilter] = useState<Stage | ''>('')
-  const router = useRouter()
 
   const filtered = stageFilter ? leads.filter(l => l.stage === stageFilter) : leads
 

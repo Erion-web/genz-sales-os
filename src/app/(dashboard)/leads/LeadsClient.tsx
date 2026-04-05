@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Lead, Stage, Source, Intent, STAGES, SOURCES, INTENTS,
@@ -24,6 +24,7 @@ function FollowupBadge({ date }: { date: string }) {
 
 export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
   const [leads, setLeads] = useState(initialLeads)
+  useEffect(() => { setLeads(initialLeads) }, [initialLeads])
   const [search, setSearch] = useState('')
   const [filterStage, setFilterStage] = useState<Stage | ''>('')
   const [filterSource, setFilterSource] = useState<Source | ''>('')
