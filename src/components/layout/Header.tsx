@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Profile } from '@/types'
 import SearchModal from './SearchModal'
 import NotificationsPanel from './NotificationsPanel'
+import ThemeToggle from './ThemeToggle'
 
 const PAGE_META: Record<string, { title: string; sub: string }> = {
   '/':          { title: 'War Room',    sub: 'Your real-time sales command center' },
@@ -90,6 +91,9 @@ export default function Header({ profile, onMenuClick }: { profile: Profile | nu
 
         {/* Notification bell */}
         <NotificationsPanel />
+
+        {/* Theme toggle */}
+        <ThemeToggle />
 
         {/* Avatar */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-border">

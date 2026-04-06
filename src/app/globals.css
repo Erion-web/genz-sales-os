@@ -25,6 +25,27 @@
   --shadow:      rgba(16, 24, 40, 0.06);
 }
 
+/* ── Dark mode tokens ────────────────────────────────────── */
+.dark {
+  --bg:          #0D1117;
+  --surface:     #161B22;
+  --s2:          #1C2128;
+  --s3:          #21262D;
+  --accent:      #3B82F6;
+  --accent-h:    #2563EB;
+  --accent-soft: #1D3461;
+  --danger:      #F87171;
+  --warning:     #FBBF24;
+  --success:     #4ADE80;
+  --info:        #38BDF8;
+  --tx:          #E6EDF3;
+  --tx-2:        #8B949E;
+  --tx-3:        #6E7681;
+  --border:      #30363D;
+  --border-2:    #484F58;
+  --shadow:      rgba(0, 0, 0, 0.3);
+}
+
 /* ── Base ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 

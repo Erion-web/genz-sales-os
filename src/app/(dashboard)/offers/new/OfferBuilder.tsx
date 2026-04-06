@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { OfferService, OfferClientLogo, Lead } from '@/types'
+import { OfferService, OfferClientLogo, Lead, Offer } from '@/types'
+import LogoPicker from '@/components/offers/LogoPicker'
 
 const SERVICE_TEMPLATES: OfferService[] = [
   { name: 'Meta Ads Management', description: 'Full campaign management across Facebook & Instagram. Strategy, creatives, A/B testing, and monthly reporting.', price: 500, unit: 'month' },
@@ -18,59 +19,35 @@ const SERVICE_TEMPLATES: OfferService[] = [
   { name: 'SEO & Content', description: 'Search engine optimization, keyword strategy, content calendar, and monthly blog posts.', price: 500, unit: 'month' },
 ]
 
-const DEFAULT_LOGOS: OfferClientLogo[] = [
-  { name: 'Nourish Albania' },
-  { name: 'Vitrina Store' },
-  { name: 'Sezoni' },
-  { name: 'ProSport' },
-  { name: 'Delta City' },
-  { name: 'Klan Media' },
-]
-
-interface Step1Data {
-  lead_id: string
-  client_name: string
-  client_company: string
-  client_email: string
-  greeting: string
-}
-
 interface Props {
   leads: Pick<Lead, 'id' | 'name' | 'company' | 'email'>[]
+  existingOffer?: Offer
 }
 
-export default function OfferBuilder({ leads }: Props) {
+export default function OfferBuilder({ leads, existingOffer }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const isEdit = !!existingOffer
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
 
-  // Step 1
-  const [step1, setStep1] = useState<Step1Data>({
-    lead_id: '', client_name: '', client_company: '', client_email: '', greeting: '',
+  const [step1, setStep1] = useState({
+    lead_id: existingOffer?.lead_id || '',
+    client_name: existingOffer?.client_name || '',
+    client_company: existingOffer?.client_company || '',
+    client_email: existingOffer?.client_email || '',
+    greeting: existingOffer?.greeting || '',
   })
 
-  // Step 2 — services
-  const [services, setServices] = useState<OfferService[]>([])
+  const [services, setServices] = useState<OfferService[]>(existingOffer?.services || [])
   const [customService, setCustomService] = useState<OfferService>({ name: '', description: '', price: 0, unit: 'month' })
   const [addingCustom, setAddingCustom] = useState(false)
+  const [logos, setLogos] = useState<OfferClientLogo[]>(existingOffer?.client_logos || [])
 
-  // Step 3 — client logos
-  const [logos, setLogos] = useState<OfferClientLogo[]>(DEFAULT_LOGOS)
-  const [newLogoName, setNewLogoName] = useState('')
-  const [newLogoUrl, setNewLogoUrl] = useState('')
-
-  // Autofill from lead
   const handleLeadSelect = (leadId: string) => {
     const lead = leads.find(l => l.id === leadId)
     if (lead) {
-      setStep1(s => ({
-        ...s,
-        lead_id: leadId,
-        client_name: lead.name,
-        client_company: lead.company || '',
-        client_email: lead.email || '',
-      }))
+      setStep1(s => ({ ...s, lead_id: leadId, client_name: lead.name, client_company: lead.company || '', client_email: lead.email || '' }))
     } else {
       setStep1(s => ({ ...s, lead_id: '' }))
     }
@@ -78,11 +55,8 @@ export default function OfferBuilder({ leads }: Props) {
 
   const toggleTemplate = (tpl: OfferService) => {
     const exists = services.find(s => s.name === tpl.name)
-    if (exists) {
-      setServices(prev => prev.filter(s => s.name !== tpl.name))
-    } else {
-      setServices(prev => [...prev, { ...tpl }])
-    }
+    if (exists) setServices(prev => prev.filter(s => s.name !== tpl.name))
+    else setServices(prev => [...prev, { ...tpl }])
   }
 
   const updateService = (i: number, field: keyof OfferService, value: string | number) => {
@@ -96,30 +70,15 @@ export default function OfferBuilder({ leads }: Props) {
     setAddingCustom(false)
   }
 
-  const addLogo = () => {
-    if (!newLogoName.trim()) return
-    setLogos(prev => [...prev, { name: newLogoName.trim(), logo_url: newLogoUrl.trim() || undefined }])
-    setNewLogoName('')
-    setNewLogoUrl('')
-  }
-
-  const total = services.reduce((sum, s) => {
-    if (s.unit === 'month') return sum + s.price
-    return sum
-  }, 0)
-  const totalOnce = services.reduce((sum, s) => {
-    if (s.unit === 'once') return sum + s.price
-    return sum
-  }, 0)
+  const monthly = services.filter(s => s.unit === 'month').reduce((sum, s) => sum + s.price, 0)
+  const once = services.filter(s => s.unit === 'once').reduce((sum, s) => sum + s.price, 0)
 
   const handleSave = async (sendNow = false) => {
     setSaving(true)
-    const { data, error } = await supabase.from('offers').insert({
+    const payload = {
       lead_id: step1.lead_id || null,
-      title: step1.client_company
-        ? `Proposal for ${step1.client_company}`
-        : `Proposal for ${step1.client_name}`,
-      status: sendNow ? 'sent' : 'draft',
+      title: step1.client_company ? `Proposal for ${step1.client_company}` : `Proposal for ${step1.client_name}`,
+      status: sendNow ? 'sent' : (existingOffer?.status ?? 'draft'),
       client_name: step1.client_name,
       client_company: step1.client_company || null,
       client_email: step1.client_email || null,
@@ -127,18 +86,34 @@ export default function OfferBuilder({ leads }: Props) {
       services,
       client_logos: logos,
       deal_type: services.some(s => s.unit === 'month') ? 'retainer' : 'project',
-      sent_at: sendNow ? new Date().toISOString() : null,
-    }).select().single()
+      ...(sendNow ? { sent_at: new Date().toISOString() } : {}),
+    }
 
+    let id: string
+    if (isEdit) {
+      const { error } = await supabase.from('offers').update(payload).eq('id', existingOffer.id)
+      if (error) { alert('Failed to save: ' + error.message); setSaving(false); return }
+      id = existingOffer.id
+    } else {
+      const { data, error } = await supabase.from('offers').insert(payload).select().single()
+      if (error || !data) { alert('Failed to save: ' + error?.message); setSaving(false); return }
+      id = data.id
+    }
     setSaving(false)
-    if (error || !data) { alert('Failed to save: ' + error?.message); return }
-    router.push(`/offers/${data.id}`)
+    router.push(`/offers/${id}`)
   }
 
   const steps = ['Client', 'Services', 'Logos & Send']
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={() => router.back()} className="text-tx-3 hover:text-tx transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <h1 className="font-heading text-xl font-bold text-tx">{isEdit ? 'Edit Proposal' : 'New Proposal'}</h1>
+      </div>
+
       {/* Stepper */}
       <div className="flex items-center gap-0 mb-8">
         {steps.map((label, i) => {
@@ -148,41 +123,38 @@ export default function OfferBuilder({ leads }: Props) {
           return (
             <div key={label} className="flex items-center flex-1 last:flex-none">
               <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
-                  done ? 'bg-success text-white' : active ? 'bg-accent text-white' : 'bg-s3 text-tx-3'
-                }`}>
+                <button
+                  onClick={() => done || active ? setStep(num) : undefined}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                    done ? 'bg-success text-white cursor-pointer' : active ? 'bg-accent text-white' : 'bg-s3 text-tx-3'
+                  }`}
+                >
                   {done ? '✓' : num}
-                </div>
+                </button>
                 <span className={`text-sm hidden sm:block ${active ? 'text-tx font-medium' : 'text-tx-3'}`}>{label}</span>
               </div>
-              {i < steps.length - 1 && (
-                <div className={`flex-1 h-px mx-3 ${done ? 'bg-success' : 'bg-border'}`} />
-              )}
+              {i < steps.length - 1 && <div className={`flex-1 h-px mx-3 ${done ? 'bg-success' : 'bg-border'}`} />}
             </div>
           )
         })}
       </div>
 
-      {/* ── Step 1: Client info ────────────────────────────────── */}
+      {/* ── Step 1 ─────────────────────────────────────────────── */}
       {step === 1 && (
         <div className="card p-6 space-y-5">
           <div>
             <h2 className="font-heading text-xl font-bold text-tx">Who is this proposal for?</h2>
             <p className="text-tx-3 text-sm mt-1">Link to an existing lead or enter client details manually.</p>
           </div>
-
           {leads.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-tx-2 mb-1.5">Link to existing lead (optional)</label>
               <select value={step1.lead_id} onChange={e => handleLeadSelect(e.target.value)} className="text-sm">
                 <option value="">— Select a lead —</option>
-                {leads.map(l => (
-                  <option key={l.id} value={l.id}>{l.name}{l.company ? ` · ${l.company}` : ''}</option>
-                ))}
+                {leads.map(l => <option key={l.id} value={l.id}>{l.name}{l.company ? ` · ${l.company}` : ''}</option>)}
               </select>
             </div>
           )}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-tx-2 mb-1.5">Client name *</label>
@@ -198,48 +170,33 @@ export default function OfferBuilder({ leads }: Props) {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-tx-2 mb-1.5">Personalized greeting</label>
-              <textarea
-                rows={4}
-                value={step1.greeting}
-                onChange={e => setStep1(s => ({ ...s, greeting: e.target.value }))}
-                placeholder={`Dear ${step1.client_name || '[Client]'},\n\nThank you for your time. We have prepared this proposal specifically for your business...`}
-                className="text-sm resize-none"
-              />
+              <textarea rows={4} value={step1.greeting} onChange={e => setStep1(s => ({ ...s, greeting: e.target.value }))}
+                placeholder={`Dear ${step1.client_name || '[Client]'},\n\nThank you for your time...`}
+                className="text-sm resize-none" />
             </div>
           </div>
-
           <div className="flex justify-end pt-2">
-            <button
-              onClick={() => setStep(2)}
-              disabled={!step1.client_name.trim()}
-              className="btn-primary"
-            >
+            <button onClick={() => setStep(2)} disabled={!step1.client_name.trim()} className="btn-primary">
               Next: Services →
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Step 2: Services ───────────────────────────────────── */}
+      {/* ── Step 2 ─────────────────────────────────────────────── */}
       {step === 2 && (
         <div className="space-y-4">
           <div className="card p-6">
             <h2 className="font-heading text-xl font-bold text-tx">What are you offering?</h2>
-            <p className="text-tx-3 text-sm mt-1">Pick from templates or add custom services. Edit prices as needed.</p>
+            <p className="text-tx-3 text-sm mt-1">Pick from templates or add custom services.</p>
           </div>
 
-          {/* Templates grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {SERVICE_TEMPLATES.map(tpl => {
-              const selected = services.some(s => s.name === tpl.name)
+              const sel = services.some(s => s.name === tpl.name)
               return (
-                <button
-                  key={tpl.name}
-                  onClick={() => toggleTemplate(tpl)}
-                  className={`card p-4 text-left transition-all ${
-                    selected ? 'border-accent/60 bg-accent/5' : 'hover:border-border-2'
-                  }`}
-                >
+                <button key={tpl.name} onClick={() => toggleTemplate(tpl)}
+                  className={`card p-4 text-left transition-all ${sel ? 'border-accent/60 bg-accent/5' : 'hover:border-border-2'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-tx">{tpl.name}</p>
@@ -250,22 +207,16 @@ export default function OfferBuilder({ leads }: Props) {
                       <p className="text-xs text-tx-3">{tpl.unit === 'month' ? '/mo' : 'once'}</p>
                     </div>
                   </div>
-                  {selected && (
-                    <div className="mt-2 flex items-center gap-1 text-xs text-accent font-medium">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      Added
-                    </div>
-                  )}
+                  {sel && <div className="mt-2 flex items-center gap-1 text-xs text-accent font-medium">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Added
+                  </div>}
                 </button>
               )
             })}
           </div>
 
-          {/* Custom service */}
           {!addingCustom ? (
-            <button onClick={() => setAddingCustom(true)} className="btn-ghost w-full justify-center">
-              + Add custom service
-            </button>
+            <button onClick={() => setAddingCustom(true)} className="btn-ghost w-full justify-center">+ Add custom service</button>
           ) : (
             <div className="card p-4 space-y-3">
               <p className="text-sm font-medium text-tx">Custom service</p>
@@ -287,10 +238,9 @@ export default function OfferBuilder({ leads }: Props) {
             </div>
           )}
 
-          {/* Selected services editable */}
           {services.length > 0 && (
             <div className="card p-5">
-              <p className="text-sm font-semibold text-tx mb-3">Selected services ({services.length})</p>
+              <p className="text-sm font-semibold text-tx mb-3">Selected ({services.length})</p>
               <div className="space-y-3">
                 {services.map((s, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 bg-s2 rounded-lg">
@@ -305,64 +255,41 @@ export default function OfferBuilder({ leads }: Props) {
                       </div>
                       <textarea rows={2} value={s.description} onChange={e => updateService(i, 'description', e.target.value)} className="text-xs sm:col-span-3 resize-none" />
                     </div>
-                    <button onClick={() => setServices(prev => prev.filter((_, idx) => idx !== i))} className="text-tx-3 hover:text-danger transition-colors p-1 shrink-0">
+                    <button onClick={() => setServices(prev => prev.filter((_, idx) => idx !== i))} className="text-tx-3 hover:text-danger p-1 shrink-0">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                   </div>
                 ))}
               </div>
               <div className="mt-3 pt-3 border-t border-border flex justify-end gap-6 text-sm">
-                {total > 0 && <span className="text-tx-2">Monthly: <span className="font-bold text-accent">€{total.toLocaleString()}/mo</span></span>}
-                {totalOnce > 0 && <span className="text-tx-2">One-time: <span className="font-bold text-success">€{totalOnce.toLocaleString()}</span></span>}
+                {monthly > 0 && <span className="text-tx-2">Monthly: <span className="font-bold text-accent">€{monthly.toLocaleString()}/mo</span></span>}
+                {once > 0 && <span className="text-tx-2">One-time: <span className="font-bold text-success">€{once.toLocaleString()}</span></span>}
               </div>
             </div>
           )}
 
           <div className="flex justify-between pt-2">
             <button onClick={() => setStep(1)} className="btn-ghost">← Back</button>
-            <button onClick={() => setStep(3)} disabled={services.length === 0} className="btn-primary">
-              Next: Logos & Send →
-            </button>
+            <button onClick={() => setStep(3)} disabled={services.length === 0} className="btn-primary">Next: Logos & Send →</button>
           </div>
         </div>
       )}
 
-      {/* ── Step 3: Logos & Send ───────────────────────────────── */}
+      {/* ── Step 3 ─────────────────────────────────────────────── */}
       {step === 3 && (
         <div className="space-y-4">
           <div className="card p-6">
             <h2 className="font-heading text-xl font-bold text-tx">Client logos & send</h2>
-            <p className="text-tx-3 text-sm mt-1">These will appear in the "Our Clients" section of the proposal.</p>
+            <p className="text-tx-3 text-sm mt-1">Select logos to show in the "Our Clients" section. Upload images or use name-only cards.</p>
           </div>
 
-          {/* Logo list */}
-          <div className="card p-5 space-y-3">
-            <p className="text-sm font-semibold text-tx">Client logos shown in proposal</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {logos.map((l, i) => (
-                <div key={i} className="flex items-center gap-2 bg-s2 rounded-lg px-3 py-2">
-                  {l.logo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.logo_url} alt={l.name} className="h-6 w-auto object-contain" />
-                  ) : (
-                    <span className="text-xs font-semibold text-tx-2 flex-1 truncate">{l.name}</span>
-                  )}
-                  <button onClick={() => setLogos(prev => prev.filter((_, idx) => idx !== i))} className="text-tx-3 hover:text-danger transition-colors shrink-0">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2 pt-1">
-              <input value={newLogoName} onChange={e => setNewLogoName(e.target.value)} placeholder="Client name" className="text-xs flex-1" />
-              <input value={newLogoUrl} onChange={e => setNewLogoUrl(e.target.value)} placeholder="Logo URL (optional)" className="text-xs flex-1" />
-              <button onClick={addLogo} className="btn-ghost text-xs px-3">Add</button>
-            </div>
+          <div className="card p-5">
+            <LogoPicker selected={logos} onChange={setLogos} />
           </div>
 
           {/* Summary */}
           <div className="card p-5 space-y-3">
-            <p className="text-sm font-semibold text-tx">Proposal summary</p>
+            <p className="text-sm font-semibold text-tx">Summary</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs text-tx-3">Client</p>
@@ -373,30 +300,27 @@ export default function OfferBuilder({ leads }: Props) {
                 <p className="text-xs text-tx-3">Services</p>
                 <p className="font-medium text-tx">{services.length} service{services.length !== 1 ? 's' : ''}</p>
               </div>
-              {total > 0 && (
-                <div>
-                  <p className="text-xs text-tx-3">Monthly</p>
-                  <p className="font-bold text-accent">€{total.toLocaleString()}/mo</p>
-                </div>
-              )}
-              {totalOnce > 0 && (
-                <div>
-                  <p className="text-xs text-tx-3">One-time</p>
-                  <p className="font-bold text-success">€{totalOnce.toLocaleString()}</p>
-                </div>
-              )}
+              {monthly > 0 && <div><p className="text-xs text-tx-3">Monthly</p><p className="font-bold text-accent">€{monthly.toLocaleString()}/mo</p></div>}
+              {once > 0 && <div><p className="text-xs text-tx-3">One-time</p><p className="font-bold text-success">€{once.toLocaleString()}</p></div>}
             </div>
           </div>
 
-          <div className="flex justify-between pt-2 gap-3">
+          <div className="flex justify-between pt-2 gap-3 flex-wrap">
             <button onClick={() => setStep(2)} className="btn-ghost">← Back</button>
             <div className="flex gap-3">
               <button onClick={() => handleSave(false)} disabled={saving} className="btn-ghost">
-                {saving ? 'Saving...' : 'Save as draft'}
+                {saving ? 'Saving...' : isEdit ? 'Save changes' : 'Save as draft'}
               </button>
-              <button onClick={() => handleSave(true)} disabled={saving} className="btn-primary">
-                {saving ? 'Creating...' : '✓ Create & get link'}
-              </button>
+              {!isEdit && (
+                <button onClick={() => handleSave(true)} disabled={saving} className="btn-primary">
+                  {saving ? 'Creating...' : '✓ Create & get link'}
+                </button>
+              )}
+              {isEdit && (
+                <button onClick={() => handleSave(false)} disabled={saving} className="btn-primary">
+                  {saving ? 'Saving...' : '✓ Save & view'}
+                </button>
+              )}
             </div>
           </div>
         </div>
