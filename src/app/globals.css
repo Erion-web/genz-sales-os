@@ -4,45 +4,45 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Design tokens ───────────────────────────────────────── */
+/* ── Design tokens (space-separated RGB for Tailwind opacity support) ── */
 :root {
-  --bg:          #F6F8FB;
-  --surface:     #FFFFFF;
-  --s2:          #FAFBFD;
-  --s3:          #F3F6FA;
-  --accent:      #2563EB;
-  --accent-h:    #1D4ED8;
-  --accent-soft: #EFF6FF;
-  --danger:      #DC2626;
-  --warning:     #D97706;
-  --success:     #16A34A;
-  --info:        #0284C7;
-  --tx:          #1F2937;
-  --tx-2:        #667085;
-  --tx-3:        #98A2B3;
-  --border:      #E6EAF0;
-  --border-2:    #D0D5DD;
+  --bg:          246 248 251;
+  --surface:     255 255 255;
+  --s2:          250 251 253;
+  --s3:          243 246 250;
+  --accent:      37 99 235;
+  --accent-h:    29 78 216;
+  --accent-soft: 239 246 255;
+  --danger:      220 38 38;
+  --warning:     217 119 6;
+  --success:     22 163 74;
+  --info:        2 132 199;
+  --tx:          31 41 55;
+  --tx-2:        102 112 133;
+  --tx-3:        152 162 179;
+  --border:      230 234 240;
+  --border-2:    208 213 221;
   --shadow:      rgba(16, 24, 40, 0.06);
 }
 
 /* ── Dark mode tokens ────────────────────────────────────── */
 .dark {
-  --bg:          #0D1117;
-  --surface:     #161B22;
-  --s2:          #1C2128;
-  --s3:          #21262D;
-  --accent:      #3B82F6;
-  --accent-h:    #2563EB;
-  --accent-soft: #1D3461;
-  --danger:      #F87171;
-  --warning:     #FBBF24;
-  --success:     #4ADE80;
-  --info:        #38BDF8;
-  --tx:          #E6EDF3;
-  --tx-2:        #8B949E;
-  --tx-3:        #6E7681;
-  --border:      #30363D;
-  --border-2:    #484F58;
+  --bg:          13 17 23;
+  --surface:     22 27 34;
+  --s2:          28 33 40;
+  --s3:          33 38 45;
+  --accent:      59 130 246;
+  --accent-h:    37 99 235;
+  --accent-soft: 29 52 97;
+  --danger:      248 113 113;
+  --warning:     251 191 36;
+  --success:     74 222 128;
+  --info:        56 189 248;
+  --tx:          230 237 243;
+  --tx-2:        139 148 158;
+  --tx-3:        110 118 129;
+  --border:      48 54 61;
+  --border-2:    72 79 88;
   --shadow:      rgba(0, 0, 0, 0.3);
 }
 
@@ -50,8 +50,8 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body {
-  background-color: var(--bg);
-  color: var(--tx);
+  background-color: rgb(var(--bg));
+  color: rgb(var(--tx));
   font-family: 'DM Mono', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -60,14 +60,14 @@ html, body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Syne', sans-serif;
-  color: var(--tx);
+  color: rgb(var(--tx));
 }
 
 /* ── Scrollbar ────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--tx-3); }
+::-webkit-scrollbar-thumb { background: rgb(var(--border-2)); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--tx-3)); }
 
 /* ── Form elements ────────────────────────────────────────── */
 input[type="date"]::-webkit-calendar-picker-indicator,
@@ -77,9 +77,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 input, select, textarea {
-  background-color: var(--surface);
-  color: var(--tx);
-  border: 1px solid var(--border);
+  background-color: rgb(var(--surface));
+  color: rgb(var(--tx));
+  border: 1px solid rgb(var(--border));
   border-radius: 8px;
   padding: 8px 12px;
   font-family: 'DM Mono', monospace;
@@ -89,32 +89,32 @@ input, select, textarea {
   width: 100%;
 }
 input:focus, select:focus, textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: rgb(var(--accent));
+  box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
 }
-input::placeholder, textarea::placeholder { color: var(--tx-3); }
-select option { background-color: var(--surface); color: var(--tx); }
+input::placeholder, textarea::placeholder { color: rgb(var(--tx-3)); }
+select option { background-color: rgb(var(--surface)); color: rgb(var(--tx)); }
 
 /* ── Utilities ────────────────────────────────────────────── */
 @layer utilities {
 
   /* Cards */
   .card {
-    background-color: var(--surface);
-    border: 1px solid var(--border);
+    background-color: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04);
   }
 
   .card-hover {
-    background-color: var(--surface);
-    border: 1px solid var(--border);
+    background-color: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(16,24,40,0.06);
     transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
   }
   .card-hover:hover {
-    border-color: var(--border-2);
+    border-color: rgb(var(--border-2));
     box-shadow: 0 4px 12px rgba(16,24,40,0.08);
     transform: translateY(-1px);
   }
@@ -124,7 +124,7 @@ select option { background-color: var(--surface); color: var(--tx); }
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background-color: var(--accent);
+    background-color: rgb(var(--accent));
     color: #ffffff;
     border-radius: 8px;
     padding: 8px 16px;
@@ -138,8 +138,8 @@ select option { background-color: var(--surface); color: var(--tx); }
     letter-spacing: 0.01em;
   }
   .btn-primary:hover {
-    background-color: var(--accent-h);
-    box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+    background-color: rgb(var(--accent-h));
+    box-shadow: 0 2px 8px rgb(var(--accent) / 0.25);
     transform: translateY(-1px);
   }
   .btn-primary:active { transform: translateY(0); }
@@ -150,22 +150,22 @@ select option { background-color: var(--surface); color: var(--tx); }
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background-color: var(--surface);
-    color: var(--tx-2);
+    background-color: rgb(var(--surface));
+    color: rgb(var(--tx-2));
     border-radius: 8px;
     padding: 8px 16px;
     font-family: 'DM Mono', monospace;
     font-size: 13px;
     font-weight: 500;
-    border: 1px solid var(--border);
+    border: 1px solid rgb(var(--border));
     cursor: pointer;
     transition: all 0.15s;
     white-space: nowrap;
   }
   .btn-ghost:hover {
-    background-color: var(--s3);
-    color: var(--tx);
-    border-color: var(--border-2);
+    background-color: rgb(var(--s3));
+    color: rgb(var(--tx));
+    border-color: rgb(var(--border-2));
   }
 
   /* Badge */
