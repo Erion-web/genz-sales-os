@@ -58,6 +58,39 @@ export interface Profile {
   created_at: string
 }
 
+export type OfferStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined'
+
+export interface OfferService {
+  name: string
+  description: string
+  price: number
+  unit: 'month' | 'once'
+}
+
+export interface OfferClientLogo {
+  name: string
+  logo_url?: string
+}
+
+export interface Offer {
+  id: string
+  lead_id: string | null
+  title: string
+  status: OfferStatus
+  client_name: string
+  client_company: string | null
+  client_email: string | null
+  greeting: string | null
+  services: OfferService[]
+  client_logos: OfferClientLogo[]
+  deal_type: 'retainer' | 'project' | null
+  created_by: string | null
+  share_token: string
+  created_at: string
+  updated_at: string
+  sent_at: string | null
+}
+
 export const STAGES: Stage[] = ['New', 'Contacted', 'Follow-up 1', 'Follow-up 2', 'Negotiation', 'Closed', 'Dead']
 export const SOURCES: Source[] = ['Referral', 'Cold outreach', 'Instagram', 'TikTok', 'LinkedIn', 'Facebook', 'Website', 'Other']
 export const SERVICES: Service[] = ['Meta Ads', 'Google Ads', 'TikTok Ads', 'Social Media', 'Branding', 'Web Dev', 'E-Commerce', 'Automation', 'Video', 'SEO']

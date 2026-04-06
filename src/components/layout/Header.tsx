@@ -13,6 +13,7 @@ const PAGE_META: Record<string, { title: string; sub: string }> = {
   '/leads':     { title: 'All Leads',   sub: 'Every lead across the team' },
   '/my-leads':  { title: 'My Leads',    sub: 'Your personal pipeline & commission' },
   '/stats':     { title: 'Statistics',  sub: 'Performance analytics & leaderboard' },
+  '/offers':    { title: 'Offers',       sub: 'Create & send client proposals' },
   '/team':      { title: 'Team',        sub: 'Team overview & management' },
 }
 
