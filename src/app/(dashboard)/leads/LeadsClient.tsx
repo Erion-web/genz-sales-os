@@ -22,7 +22,7 @@ function FollowupBadge({ date }: { date: string }) {
   return <span className="badge bg-success/10 text-success text-xs">{formatDate(date)}</span>
 }
 
-export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) {
+export default function LeadsClient({ initialLeads, isAdmin }: { initialLeads: Lead[]; isAdmin: boolean }) {
   const [leads, setLeads] = useState(initialLeads)
   useEffect(() => { setLeads(initialLeads) }, [initialLeads])
   const [search, setSearch] = useState('')
@@ -149,7 +149,7 @@ export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) 
                 <th className="text-left p-3 text-xs text-tx-3 uppercase tracking-wider">Value</th>
                 <th className="text-left p-3 text-xs text-tx-3 uppercase tracking-wider">Source</th>
                 <th className="text-left p-3 text-xs text-tx-3 uppercase tracking-wider">Follow-up</th>
-                <th className="text-left p-3 text-xs text-tx-3 uppercase tracking-wider">Owner</th>
+                {isAdmin && <th className="text-left p-3 text-xs text-tx-3 uppercase tracking-wider">Owner</th>}
                 <th className="p-3"></th>
               </tr>
             </thead>
@@ -188,7 +188,7 @@ export default function LeadsClient({ initialLeads }: { initialLeads: Lead[] }) 
                     <td className="p-3">
                       <FollowupBadge date={lead.next_followup} />
                     </td>
-                    <td className="p-3 text-xs text-tx-3">{lead.owner_name || '—'}</td>
+                    {isAdmin && <td className="p-3 text-xs text-tx-3">{lead.owner_name || '—'}</td>}
                     <td className="p-3">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {phone && (

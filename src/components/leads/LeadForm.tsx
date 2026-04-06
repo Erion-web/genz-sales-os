@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Lead, Stage, Intent, Source, Service,
   STAGES, SOURCES, SERVICES, INTENTS,
-  getDealValue
 } from '@/types'
 
 interface Props {
@@ -22,12 +21,22 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [conflicts, setConflicts] = useState<string[]>([])
 
+  // Determine deal_type from existing values — show both if both exist
+  const initDealTypes = (() => {
+    if (!lead) return { retainer: true, project: false }
+    return {
+      retainer: lead.deal_type === 'retainer' || (!!lead.monthly),
+      project:  lead.deal_type === 'project'  || (!!lead.project),
+    }
+  })()
+
+  const [dealTypes, setDealTypes] = useState(initDealTypes)
+
   const [form, setForm] = useState({
     name: lead?.name || '',
     company: lead?.company || '',
     phone: lead?.phone || '',
     email: lead?.email || '',
-    deal_type: lead?.deal_type || 'retainer',
     monthly: lead?.monthly?.toString() || '',
     months: lead?.months?.toString() || '6',
     project: lead?.project?.toString() || '',
@@ -46,10 +55,21 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
     follow_up_count: lead?.follow_up_count || 0,
   })
 
-  const dealValue =
-    form.deal_type === 'retainer'
-      ? (parseFloat(form.monthly) || 0) * (parseInt(form.months) || 6)
-      : parseFloat(form.project) || 0
+  // Auto-fill owner_name from logged-in profile
+  useEffect(() => {
+    if (lead?.owner_name) return // don't overwrite on edit
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return
+      supabase.from('profiles').select('full_name').eq('id', session.user.id).single()
+        .then(({ data }) => {
+          if (data?.full_name) setForm(p => ({ ...p, owner_name: data.full_name! }))
+        })
+    })
+  }, [])
+
+  const retainerValue = dealTypes.retainer ? (parseFloat(form.monthly) || 0) * (parseInt(form.months) || 6) : 0
+  const projectValue  = dealTypes.project  ? (parseFloat(form.project)  || 0) : 0
+  const dealValue = retainerValue + projectValue
 
   const toggleService = (s: Service) => {
     setForm(prev => ({
@@ -118,15 +138,21 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
     if (!session?.user) { setError('Not authenticated'); setLoading(false); return }
     const user = session.user
 
+    // Derive canonical deal_type — prefer retainer if both selected
+    const deal_type = dealTypes.retainer && dealTypes.project ? 'retainer'
+      : dealTypes.retainer ? 'retainer'
+      : dealTypes.project  ? 'project'
+      : 'retainer'
+
     const payload = {
       name: form.name.trim(),
       company: form.company || null,
       phone: form.phone || null,
       email: form.email || null,
-      deal_type: form.deal_type,
-      monthly: form.deal_type === 'retainer' ? parseFloat(form.monthly) || null : null,
-      months: form.deal_type === 'retainer' ? parseInt(form.months) || 6 : null,
-      project: form.deal_type === 'project' ? parseFloat(form.project) || null : null,
+      deal_type,
+      monthly: dealTypes.retainer ? parseFloat(form.monthly) || null : null,
+      months:  dealTypes.retainer ? parseInt(form.months)  || 6   : null,
+      project: dealTypes.project  ? parseFloat(form.project) || null : null,
       source: form.source || null,
       stage: form.stage as Stage,
       intent: form.intent as Intent,
@@ -207,43 +233,77 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
           {/* Deal */}
           <section>
             <h3 className="text-xs text-tx-3 uppercase tracking-wider mb-3">Deal</h3>
-            <div className="flex gap-2 mb-3">
-              {(['retainer', 'project'] as const).map(t => (
+            <p className="text-xs text-tx-3 mb-3">Select one or both deal types</p>
+            <div className="space-y-3">
+              {/* Retainer toggle + fields */}
+              <div className={`rounded-xl border transition-all ${dealTypes.retainer ? 'border-accent bg-accent/5' : 'border-border'}`}>
                 <button
-                  key={t}
                   type="button"
-                  onClick={() => setForm(p => ({ ...p, deal_type: t }))}
-                  className={`px-4 py-2 rounded-lg text-sm capitalize transition-all border ${
-                    form.deal_type === t
-                      ? 'bg-accent/20 border-accent text-accent'
-                      : 'border-border text-tx-3 hover:border-s3'
-                  }`}
+                  onClick={() => setDealTypes(d => ({ ...d, retainer: !d.retainer }))}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left"
                 >
-                  {t}
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                    dealTypes.retainer ? 'border-accent bg-accent' : 'border-border'
+                  }`}>
+                    {dealTypes.retainer && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${dealTypes.retainer ? 'text-accent' : 'text-tx'}`}>Retainer</p>
+                    <p className="text-xs text-tx-3">Monthly recurring revenue</p>
+                  </div>
+                  {dealTypes.retainer && retainerValue > 0 && (
+                    <span className="ml-auto text-sm font-bold text-accent">€{retainerValue.toLocaleString()}</span>
+                  )}
                 </button>
-              ))}
+                {dealTypes.retainer && (
+                  <div className="grid grid-cols-2 gap-3 px-4 pb-4">
+                    <div>
+                      <label className="block text-xs text-tx-3 mb-1">Monthly (€)</label>
+                      <input type="number" min="0" value={form.monthly} onChange={e => setForm(p => ({ ...p, monthly: e.target.value }))} placeholder="2000" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-tx-3 mb-1">Months</label>
+                      <input type="number" min="1" value={form.months} onChange={e => setForm(p => ({ ...p, months: e.target.value }))} placeholder="6" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Project toggle + fields */}
+              <div className={`rounded-xl border transition-all ${dealTypes.project ? 'border-success bg-success/5' : 'border-border'}`}>
+                <button
+                  type="button"
+                  onClick={() => setDealTypes(d => ({ ...d, project: !d.project }))}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                    dealTypes.project ? 'border-success bg-success' : 'border-border'
+                  }`}>
+                    {dealTypes.project && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${dealTypes.project ? 'text-success' : 'text-tx'}`}>Project</p>
+                    <p className="text-xs text-tx-3">One-time project fee</p>
+                  </div>
+                  {dealTypes.project && projectValue > 0 && (
+                    <span className="ml-auto text-sm font-bold text-success">€{projectValue.toLocaleString()}</span>
+                  )}
+                </button>
+                {dealTypes.project && (
+                  <div className="px-4 pb-4">
+                    <label className="block text-xs text-tx-3 mb-1">Project Value (€)</label>
+                    <input type="number" min="0" value={form.project} onChange={e => setForm(p => ({ ...p, project: e.target.value }))} placeholder="5000" />
+                  </div>
+                )}
+              </div>
             </div>
-            {form.deal_type === 'retainer' ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-tx-3 mb-1">Monthly (€)</label>
-                  <input type="number" min="0" value={form.monthly} onChange={e => setForm(p => ({ ...p, monthly: e.target.value }))} placeholder="2000" />
-                </div>
-                <div>
-                  <label className="block text-xs text-tx-3 mb-1">Months</label>
-                  <input type="number" min="1" value={form.months} onChange={e => setForm(p => ({ ...p, months: e.target.value }))} placeholder="6" />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-xs text-tx-3 mb-1">Project Value (€)</label>
-                <input type="number" min="0" value={form.project} onChange={e => setForm(p => ({ ...p, project: e.target.value }))} placeholder="5000" />
-              </div>
-            )}
+
             {dealValue > 0 && (
-              <p className="text-success text-sm mt-2">
-                Total value: <span className="font-semibold">€{dealValue.toLocaleString()}</span>
-              </p>
+              <div className="mt-3 flex gap-4 text-sm">
+                {retainerValue > 0 && <p className="text-accent">Retainer: <span className="font-bold">€{retainerValue.toLocaleString()}</span></p>}
+                {projectValue > 0 && <p className="text-success">Project: <span className="font-bold">€{projectValue.toLocaleString()}</span></p>}
+                {retainerValue > 0 && projectValue > 0 && <p className="text-tx-2">Total: <span className="font-bold">€{dealValue.toLocaleString()}</span></p>}
+              </div>
             )}
           </section>
 
