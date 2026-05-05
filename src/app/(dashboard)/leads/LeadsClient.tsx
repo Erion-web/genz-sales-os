@@ -84,7 +84,7 @@ export default function LeadsClient({ initialLeads, isAdmin }: { initialLeads: L
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-heading text-2xl font-bold text-tx">All Leads</h1>
+          <h1 className="font-heading text-2xl font-bold text-tx">{isAdmin ? 'All Leads' : 'My Leads'}</h1>
           <p className="text-tx-3 text-sm mt-0.5">
             {filtered.length} leads · Pipeline: <span className="text-info">{formatCurrency(totalValue)}</span>
             {closedValue > 0 && <> · Closed: <span className="text-success">{formatCurrency(closedValue)}</span></>}
