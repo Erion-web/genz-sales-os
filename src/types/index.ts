@@ -58,6 +58,17 @@ export interface Profile {
   created_at: string
 }
 
+export interface CalendarEvent {
+  id: string
+  title: string
+  date: string
+  time: string | null
+  description: string | null
+  lead_id: string | null
+  created_by: string
+  created_at: string
+}
+
 export type OfferStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined'
 
 export interface OfferService {
