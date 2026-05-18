@@ -116,6 +116,7 @@ function EventForm({
   const [leadId, setLeadId] = useState('')
   const [attendeeIds, setAttendeeIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const otherProfiles = allProfiles.filter(p => p.id !== currentUserId)
 
@@ -126,8 +127,13 @@ function EventForm({
     e.preventDefault()
     if (!title.trim() || !date) return
     setSaving(true)
-    await onSave({ title: title.trim(), date, time, description, lead_id: leadId, attendee_ids: attendeeIds })
-    setSaving(false)
+    setSaveError(null)
+    try {
+      await onSave({ title: title.trim(), date, time, description, lead_id: leadId, attendee_ids: attendeeIds })
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to save. Please try again.')
+      setSaving(false)
+    }
   }
 
   return (
@@ -224,6 +230,12 @@ function EventForm({
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+
+          {saveError && (
+            <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-xs">
+              {saveError}
             </div>
           )}
 
@@ -349,7 +361,7 @@ export default function CalendarClient({
       .select()
       .single()
 
-    if (error || !saved) return
+    if (error || !saved) throw new Error(error?.message || 'Could not save event.')
 
     if (data.attendee_ids.length > 0) {
       await supabase.from('event_attendees').insert(
