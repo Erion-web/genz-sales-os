@@ -12,6 +12,7 @@ export type AnyEvent = {
   type: 'event' | 'lead_meeting'
   lead_id: string | null
   lead_name: string | null
+  creator_name: string | null
   attendees: Profile[]
   created_by: string | null
   can_edit: boolean
@@ -48,11 +49,13 @@ function buildCalendarDays(year: number, month: number) {
 function EventCard({
   event,
   compact,
+  isAdmin,
   onEdit,
   onDelete,
 }: {
   event: AnyEvent
   compact?: boolean
+  isAdmin?: boolean
   onEdit?: (e: AnyEvent) => void
   onDelete?: (id: string) => void
 }) {
@@ -69,6 +72,11 @@ function EventCard({
           {compact && <span className="text-xs text-tx-3">{formatDate(event.date)}</span>}
           {event.lead_name && !event.title.includes(event.lead_name) && (
             <span className="text-xs text-tx-3 truncate">{event.lead_name}</span>
+          )}
+          {isAdmin && event.creator_name && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-s3 text-tx-3 font-medium">
+              {event.creator_name}
+            </span>
           )}
         </div>
         {!compact && event.attendees.length > 0 && (
@@ -326,12 +334,14 @@ export default function CalendarClient({
   allLeads,
   allProfiles,
   currentUserId,
+  isAdmin,
 }: {
   initialEvents: StoredEvent[]
   leadEvents: AnyEvent[]
   allLeads: Pick<Lead, 'id' | 'name' | 'company'>[]
   allProfiles: Profile[]
   currentUserId: string
+  isAdmin: boolean
 }) {
   const today = new Date()
   const todayStr = toDateStr(today)
@@ -380,6 +390,7 @@ export default function CalendarClient({
       type: 'event',
       lead_id: e.lead_id,
       lead_name: null,
+      creator_name: (e as any).creator_name ?? null,
       attendees: e.attendees,
       created_by: e.created_by,
       can_edit: e.created_by === currentUserId,
@@ -624,7 +635,7 @@ export default function CalendarClient({
               {selectedEvents.length === 0
                 ? <p className="text-tx-3 text-xs text-center py-6">No events on this day</p>
                 : selectedEvents.map(e => (
-                  <EventCard key={e.id} event={e} onEdit={openEdit} onDelete={handleDelete} />
+                  <EventCard key={e.id} event={e} isAdmin={isAdmin} onEdit={openEdit} onDelete={handleDelete} />
                 ))
               }
             </div>
@@ -639,7 +650,7 @@ export default function CalendarClient({
               {upcoming.length === 0
                 ? <p className="text-tx-3 text-xs text-center py-6">Nothing scheduled</p>
                 : upcoming.map(e => (
-                  <EventCard key={e.id} event={e} compact onEdit={openEdit} onDelete={handleDelete} />
+                  <EventCard key={e.id} event={e} compact isAdmin={isAdmin} onEdit={openEdit} onDelete={handleDelete} />
                 ))
               }
             </div>
