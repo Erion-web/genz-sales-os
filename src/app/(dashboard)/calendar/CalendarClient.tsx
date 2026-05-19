@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { CalendarEvent, Lead, Profile, formatDate } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
@@ -35,26 +35,32 @@ function toDateStr(d: Date): string {
 function buildCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
-  const startDow = (firstDay.getDay() + 6) % 7 // Monday = 0
+  const startDow = (firstDay.getDay() + 6) % 7
 
   const days: { date: Date; inMonth: boolean }[] = []
-
-  for (let i = startDow - 1; i >= 0; i--) {
-    days.push({ date: new Date(year, month, -i), inMonth: false })
-  }
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    days.push({ date: new Date(year, month, d), inMonth: true })
-  }
+  for (let i = startDow - 1; i >= 0; i--) days.push({ date: new Date(year, month, -i), inMonth: false })
+  for (let d = 1; d <= lastDay.getDate(); d++) days.push({ date: new Date(year, month, d), inMonth: true })
   const remaining = 42 - days.length
-  for (let i = 1; i <= remaining; i++) {
-    days.push({ date: new Date(year, month + 1, i), inMonth: false })
-  }
+  for (let i = 1; i <= remaining; i++) days.push({ date: new Date(year, month + 1, i), inMonth: false })
   return days
 }
 
-function EventCard({ event, compact }: { event: AnyEvent; compact?: boolean }) {
+function EventCard({
+  event,
+  compact,
+  onEdit,
+  onDelete,
+}: {
+  event: AnyEvent
+  compact?: boolean
+  onEdit?: (e: AnyEvent) => void
+  onDelete?: (id: string) => void
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const canAct = event.type === 'event' && event.can_edit
+
   return (
-    <div className="flex gap-2.5 p-2.5 rounded-lg hover:bg-s2/50 transition-colors">
+    <div className="group flex gap-2.5 p-2.5 rounded-lg hover:bg-s2/50 transition-colors">
       <div className={`w-0.5 rounded-full shrink-0 self-stretch ${event.type === 'lead_meeting' ? 'bg-info' : 'bg-accent'}`} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-tx truncate">{event.title}</p>
@@ -76,23 +82,67 @@ function EventCard({ event, compact }: { event: AnyEvent; compact?: boolean }) {
                 {a.full_name?.charAt(0)?.toUpperCase() || '?'}
               </div>
             ))}
-            {event.attendees.length > 4 && (
-              <span className="text-xs text-tx-3">+{event.attendees.length - 4}</span>
-            )}
+            {event.attendees.length > 4 && <span className="text-xs text-tx-3">+{event.attendees.length - 4}</span>}
           </div>
         )}
       </div>
-      <span className={`text-[10px] px-1.5 py-0.5 rounded-full h-fit shrink-0 font-medium mt-0.5 ${
-        event.type === 'lead_meeting' ? 'bg-info/15 text-info' : 'bg-accent/15 text-accent'
-      }`}>
-        {event.type === 'lead_meeting' ? 'Lead' : 'Event'}
-      </span>
+
+      <div className="flex items-start gap-0.5 shrink-0">
+        {canAct && !confirmDelete && (
+          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => onEdit?.(event)}
+              title="Edit"
+              className="p-1 rounded hover:bg-accent/10 text-tx-3 hover:text-accent transition-all"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              title="Delete"
+              className="p-1 rounded hover:bg-danger/10 text-tx-3 hover:text-danger transition-all"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </button>
+          </div>
+        )}
+        {confirmDelete && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => { onDelete?.(event.id); setConfirmDelete(false) }}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-danger text-white hover:bg-danger/80"
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="text-[10px] px-1.5 py-0.5 rounded border border-border text-tx-3 hover:text-tx"
+            >
+              No
+            </button>
+          </div>
+        )}
+        {!confirmDelete && (
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium mt-0.5 ${
+            event.type === 'lead_meeting' ? 'bg-info/15 text-info' : 'bg-accent/15 text-accent'
+          }`}>
+            {event.type === 'lead_meeting' ? 'Lead' : 'Event'}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
 
 function EventForm({
   initialDate,
+  editEvent,
   allLeads,
   allProfiles,
   currentUserId,
@@ -100,21 +150,25 @@ function EventForm({
   onCancel,
 }: {
   initialDate: string
+  editEvent?: StoredEvent
   allLeads: Pick<Lead, 'id' | 'name' | 'company'>[]
   allProfiles: Profile[]
   currentUserId: string
   onSave: (data: {
     title: string; date: string; time: string; description: string
     lead_id: string; attendee_ids: string[]
-  }) => Promise<void>
+  }, eventId?: string) => Promise<void>
   onCancel: () => void
 }) {
-  const [title, setTitle] = useState('')
-  const [date, setDate] = useState(initialDate)
-  const [time, setTime] = useState('')
-  const [description, setDescription] = useState('')
-  const [leadId, setLeadId] = useState('')
-  const [attendeeIds, setAttendeeIds] = useState<string[]>([])
+  const isEdit = !!editEvent
+  const [title, setTitle] = useState(editEvent?.title || '')
+  const [date, setDate] = useState(editEvent?.date || initialDate)
+  const [time, setTime] = useState(editEvent?.time || '')
+  const [description, setDescription] = useState(editEvent?.description || '')
+  const [leadId, setLeadId] = useState(editEvent?.lead_id || '')
+  const [attendeeIds, setAttendeeIds] = useState<string[]>(
+    editEvent?.attendees.map(a => a.id) || []
+  )
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -129,7 +183,10 @@ function EventForm({
     setSaving(true)
     setSaveError(null)
     try {
-      await onSave({ title: title.trim(), date, time, description, lead_id: leadId, attendee_ids: attendeeIds })
+      await onSave(
+        { title: title.trim(), date, time, description, lead_id: leadId, attendee_ids: attendeeIds },
+        editEvent?.id,
+      )
     } catch (err: any) {
       setSaveError(err?.message || 'Failed to save. Please try again.')
       setSaving(false)
@@ -141,7 +198,9 @@ function EventForm({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative card w-full max-w-md p-6 shadow-xl z-10 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="font-heading font-bold text-lg text-tx">New Event</h2>
+          <h2 className="font-heading font-bold text-lg text-tx">
+            {isEdit ? 'Edit Event' : 'New Event'}
+          </h2>
           <button onClick={onCancel} className="p-1.5 rounded-lg text-tx-3 hover:text-tx hover:bg-s2 transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -201,7 +260,7 @@ function EventForm({
               <label className="text-xs text-tx-3 font-medium mb-2 block">
                 Invite Teammates
                 {attendeeIds.length > 0 && (
-                  <span className="ml-1.5 text-accent">({attendeeIds.length} selected — will receive email)</span>
+                  <span className="ml-1.5 text-accent">({attendeeIds.length} selected)</span>
                 )}
               </label>
               <div className="border border-border rounded-lg divide-y divide-border max-h-40 overflow-y-auto">
@@ -248,6 +307,8 @@ function EventForm({
             >
               {saving
                 ? 'Saving...'
+                : isEdit
+                ? 'Save Changes'
                 : attendeeIds.length > 0
                 ? `Save & Notify ${attendeeIds.length}`
                 : 'Save Event'}
@@ -280,9 +341,36 @@ export default function CalendarClient({
   const [selectedDate, setSelectedDate] = useState<string>(todayStr)
   const [showForm, setShowForm] = useState(false)
   const [formDate, setFormDate] = useState(todayStr)
+  const [editingEvent, setEditingEvent] = useState<StoredEvent | undefined>()
 
   const supabase = createClient()
 
+  // ── Realtime subscription ─────────────────────────────────────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel('calendar-events-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calendar_events' }, payload => {
+        const incoming = payload.new as StoredEvent
+        setCalendarEvents(prev => {
+          if (prev.find(e => e.id === incoming.id)) return prev
+          return [...prev, { ...incoming, attendees: [] }]
+        })
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calendar_events' }, payload => {
+        const updated = payload.new as CalendarEvent
+        setCalendarEvents(prev =>
+          prev.map(e => e.id === updated.id ? { ...updated, attendees: e.attendees } : e)
+        )
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'calendar_events' }, payload => {
+        setCalendarEvents(prev => prev.filter(e => e.id !== payload.old.id))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
+  // ── Derived state ─────────────────────────────────────────────────────────
   const allEvents: AnyEvent[] = useMemo(() => {
     const events: AnyEvent[] = calendarEvents.map(e => ({
       id: e.id,
@@ -326,6 +414,7 @@ export default function CalendarClient({
     return allEvents.filter(e => e.date >= todayStr && e.date <= endStr)
   }, [allEvents, todayStr])
 
+  // ── Navigation ────────────────────────────────────────────────────────────
   const prevMonth = () => setCurrentMonth(prev => {
     const d = new Date(prev.year, prev.month - 1, 1)
     return { year: d.getFullYear(), month: d.getMonth() }
@@ -339,46 +428,93 @@ export default function CalendarClient({
     setSelectedDate(todayStr)
   }
 
-  const openForm = (date?: string) => {
+  const openCreate = (date?: string) => {
+    setEditingEvent(undefined)
     setFormDate(date || todayStr)
     setShowForm(true)
   }
 
-  const handleSave = async (data: {
-    title: string; date: string; time: string; description: string
-    lead_id: string; attendee_ids: string[]
-  }) => {
-    const { data: saved, error } = await supabase
-      .from('calendar_events')
-      .insert({
-        title: data.title,
-        date: data.date,
-        time: data.time || null,
-        description: data.description || null,
-        lead_id: data.lead_id || null,
-        created_by: currentUserId,
-      })
-      .select()
-      .single()
-
-    if (error || !saved) throw new Error(error?.message || 'Could not save event.')
-
-    if (data.attendee_ids.length > 0) {
-      await supabase.from('event_attendees').insert(
-        data.attendee_ids.map(uid => ({ event_id: saved.id, user_id: uid }))
-      )
-      await fetch('/api/calendar/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: saved.id, attendee_ids: data.attendee_ids }),
-      })
-    }
-
-    const attendees = allProfiles.filter(p => data.attendee_ids.includes(p.id))
-    setCalendarEvents(prev => [...prev, { ...saved, attendees }])
-    setShowForm(false)
+  const openEdit = (event: AnyEvent) => {
+    const stored = calendarEvents.find(e => e.id === event.id)
+    if (!stored) return
+    setEditingEvent(stored)
+    setShowForm(true)
   }
 
+  // ── CRUD handlers ─────────────────────────────────────────────────────────
+  const handleSave = async (
+    data: { title: string; date: string; time: string; description: string; lead_id: string; attendee_ids: string[] },
+    eventId?: string,
+  ) => {
+    if (eventId) {
+      // ── UPDATE ──
+      const { data: updated, error } = await supabase
+        .from('calendar_events')
+        .update({
+          title: data.title,
+          date: data.date,
+          time: data.time || null,
+          description: data.description || null,
+          lead_id: data.lead_id || null,
+        })
+        .eq('id', eventId)
+        .select()
+        .single()
+
+      if (error || !updated) throw new Error(error?.message || 'Could not update event.')
+
+      // Replace attendees
+      await supabase.from('event_attendees').delete().eq('event_id', eventId)
+      if (data.attendee_ids.length > 0) {
+        await supabase.from('event_attendees').insert(
+          data.attendee_ids.map(uid => ({ event_id: eventId, user_id: uid }))
+        )
+      }
+
+      const attendees = allProfiles.filter(p => data.attendee_ids.includes(p.id))
+      setCalendarEvents(prev => prev.map(e => e.id === eventId ? { ...updated, attendees } : e))
+    } else {
+      // ── INSERT ──
+      const { data: saved, error } = await supabase
+        .from('calendar_events')
+        .insert({
+          title: data.title,
+          date: data.date,
+          time: data.time || null,
+          description: data.description || null,
+          lead_id: data.lead_id || null,
+          created_by: currentUserId,
+        })
+        .select()
+        .single()
+
+      if (error || !saved) throw new Error(error?.message || 'Could not save event.')
+
+      if (data.attendee_ids.length > 0) {
+        await supabase.from('event_attendees').insert(
+          data.attendee_ids.map(uid => ({ event_id: saved.id, user_id: uid }))
+        )
+        await fetch('/api/calendar/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_id: saved.id, attendee_ids: data.attendee_ids }),
+        })
+      }
+
+      const attendees = allProfiles.filter(p => data.attendee_ids.includes(p.id))
+      setCalendarEvents(prev => [...prev, { ...saved, attendees }])
+    }
+
+    setShowForm(false)
+    setEditingEvent(undefined)
+  }
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('calendar_events').delete().eq('id', id)
+    if (!error) setCalendarEvents(prev => prev.filter(e => e.id !== id))
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -388,20 +524,16 @@ export default function CalendarClient({
             {upcoming.length} event{upcoming.length !== 1 ? 's' : ''} in the next 14 days
           </p>
         </div>
-        <button onClick={() => openForm()} className="btn-primary">+ New Event</button>
+        <button onClick={() => openCreate()} className="btn-primary">+ New Event</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* Calendar grid */}
         <div className="lg:col-span-2 card p-4">
-          {/* Month navigation */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-1">
-              <button
-                onClick={prevMonth}
-                className="p-1.5 rounded-lg hover:bg-s2 text-tx-3 hover:text-tx transition-colors"
-              >
+              <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-s2 text-tx-3 hover:text-tx transition-colors">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 18 9 12 15 6"/>
                 </svg>
@@ -409,10 +541,7 @@ export default function CalendarClient({
               <h2 className="font-heading font-bold text-tx text-base w-44 text-center">
                 {MONTH_NAMES[currentMonth.month]} {currentMonth.year}
               </h2>
-              <button
-                onClick={nextMonth}
-                className="p-1.5 rounded-lg hover:bg-s2 text-tx-3 hover:text-tx transition-colors"
-              >
+              <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-s2 text-tx-3 hover:text-tx transition-colors">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
@@ -421,16 +550,12 @@ export default function CalendarClient({
             <button onClick={goToday} className="btn-ghost text-xs px-3 py-1.5">Today</button>
           </div>
 
-          {/* Day headers */}
           <div className="grid grid-cols-7 mb-1">
             {DAY_NAMES.map(d => (
-              <div key={d} className="text-center text-[11px] text-tx-3 font-medium uppercase tracking-wider py-1">
-                {d}
-              </div>
+              <div key={d} className="text-center text-[11px] text-tx-3 font-medium uppercase tracking-wider py-1">{d}</div>
             ))}
           </div>
 
-          {/* Day cells */}
           <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
             {calendarDays.map(({ date, inMonth }) => {
               const dateStr = toDateStr(date)
@@ -445,41 +570,30 @@ export default function CalendarClient({
                   key={dateStr}
                   onClick={() => setSelectedDate(dateStr)}
                   className={`
-                    relative bg-surface min-h-[72px] p-1.5 flex flex-col gap-0.5 transition-colors text-left
-                    hover:bg-s2/50
+                    relative bg-surface min-h-[72px] p-1.5 flex flex-col gap-0.5 transition-colors text-left hover:bg-s2/50
                     ${!inMonth ? 'opacity-25' : ''}
                     ${isSelected ? 'bg-accent/8 hover:bg-accent/12' : ''}
                   `}
                 >
-                  <span className={`
-                    text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full shrink-0 transition-colors
-                    ${isToday ? 'bg-accent text-white' : isSelected ? 'text-accent' : 'text-tx-2'}
-                  `}>
+                  <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full shrink-0 transition-colors
+                    ${isToday ? 'bg-accent text-white' : isSelected ? 'text-accent' : 'text-tx-2'}`}>
                     {date.getDate()}
                   </span>
                   <div className="flex flex-col gap-px w-full overflow-hidden">
                     {visible.map(e => (
-                      <div
-                        key={e.id}
-                        className={`text-[10px] leading-[1.3] truncate px-1 rounded font-medium ${
-                          e.type === 'lead_meeting'
-                            ? 'bg-info/15 text-info'
-                            : 'bg-accent/15 text-accent'
-                        }`}
-                      >
+                      <div key={e.id} className={`text-[10px] leading-[1.3] truncate px-1 rounded font-medium ${
+                        e.type === 'lead_meeting' ? 'bg-info/15 text-info' : 'bg-accent/15 text-accent'
+                      }`}>
                         {e.time ? `${e.time.slice(0, 5)} ` : ''}{e.title}
                       </div>
                     ))}
-                    {overflow > 0 && (
-                      <div className="text-[10px] text-tx-3 px-1">+{overflow} more</div>
-                    )}
+                    {overflow > 0 && <div className="text-[10px] text-tx-3 px-1">+{overflow} more</div>}
                   </div>
                 </button>
               )
             })}
           </div>
 
-          {/* Legend */}
           <div className="flex items-center gap-4 mt-3 px-1">
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-sm bg-accent/30" />
@@ -494,17 +608,13 @@ export default function CalendarClient({
 
         {/* Right panel */}
         <div className="space-y-4">
-
-          {/* Selected day */}
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <h3 className="font-heading font-semibold text-sm text-tx">
-                {selectedDate === todayStr
-                  ? 'Today'
-                  : formatDate(selectedDate)}
+                {selectedDate === todayStr ? 'Today' : formatDate(selectedDate)}
               </h3>
               <button
-                onClick={() => openForm(selectedDate)}
+                onClick={() => openCreate(selectedDate)}
                 className="text-xs text-accent hover:text-accent/80 font-medium transition-colors"
               >
                 + Add
@@ -513,12 +623,13 @@ export default function CalendarClient({
             <div className="p-2">
               {selectedEvents.length === 0
                 ? <p className="text-tx-3 text-xs text-center py-6">No events on this day</p>
-                : selectedEvents.map(e => <EventCard key={e.id} event={e} />)
+                : selectedEvents.map(e => (
+                  <EventCard key={e.id} event={e} onEdit={openEdit} onDelete={handleDelete} />
+                ))
               }
             </div>
           </div>
 
-          {/* Upcoming 14 days */}
           <div className="card overflow-hidden">
             <div className="px-4 py-3 border-b border-border flex items-center justify-between">
               <h3 className="font-heading font-semibold text-sm text-tx">Upcoming · 14 days</h3>
@@ -527,22 +638,24 @@ export default function CalendarClient({
             <div className="p-2 max-h-72 overflow-y-auto">
               {upcoming.length === 0
                 ? <p className="text-tx-3 text-xs text-center py-6">Nothing scheduled</p>
-                : upcoming.map(e => <EventCard key={e.id} event={e} compact />)
+                : upcoming.map(e => (
+                  <EventCard key={e.id} event={e} compact onEdit={openEdit} onDelete={handleDelete} />
+                ))
               }
             </div>
           </div>
-
         </div>
       </div>
 
       {showForm && (
         <EventForm
           initialDate={formDate}
+          editEvent={editingEvent}
           allLeads={allLeads}
           allProfiles={allProfiles}
           currentUserId={currentUserId}
           onSave={handleSave}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => { setShowForm(false); setEditingEvent(undefined) }}
         />
       )}
     </div>
