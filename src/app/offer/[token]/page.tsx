@@ -1,9 +1,16 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { Offer } from '@/types'
 import Image from 'next/image'
 
 export const dynamic = 'force-dynamic'
+
+// Service role bypasses RLS so unauthenticated clients can view their offer by token.
+// The 32-char hex token is the only secret — never expose service role to the browser.
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+)
 
 const SERVICE_ICONS: Record<string, string> = {
   'Meta Ads Management': '📣',
@@ -32,7 +39,6 @@ function formatDate(iso: string) {
 }
 
 export default async function PublicOfferPage({ params }: { params: { token: string } }) {
-  const supabase = createClient()
   const { data } = await supabase
     .from('offers')
     .select('*')
