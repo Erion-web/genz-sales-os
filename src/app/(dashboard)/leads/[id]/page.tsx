@@ -1,17 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Lead, Activity } from '@/types'
+import { Lead, Activity, CallBrief } from '@/types'
 import LeadDetail from './LeadDetail'
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
-  const [{ data: lead }, { data: activities }] = await Promise.all([
+  const [{ data: lead }, { data: activities }, { data: briefs }] = await Promise.all([
     supabase.from('leads').select('*').eq('id', params.id).single(),
     supabase.from('activities').select('*').eq('lead_id', params.id).order('created_at', { ascending: false }),
+    supabase.from('call_briefs').select('*').eq('lead_id', params.id).order('created_at', { ascending: false }),
   ])
 
   if (!lead) notFound()
 
-  return <LeadDetail lead={lead as Lead} activities={(activities || []) as Activity[]} />
+  return (
+    <LeadDetail
+      lead={lead as Lead}
+      activities={(activities || []) as Activity[]}
+      initialCallBriefs={(briefs || []) as CallBrief[]}
+    />
+  )
 }

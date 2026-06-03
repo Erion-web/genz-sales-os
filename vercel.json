@@ -2,7 +2,19 @@
   "crons": [
     {
       "path": "/api/cron/daily-digest",
-      "schedule": "0 9 * * *"
+      "schedule": "0 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/progress-email?checkpoint=11",
+      "schedule": "0 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/progress-email?checkpoint=14",
+      "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron/progress-email?checkpoint=16",
+      "schedule": "0 14 * * 1-5"
     }
   ]
 }

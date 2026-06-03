@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Activity, ActivityType, formatDate } from '@/types'
+import CallBriefModal from './CallBriefModal'
 
 interface Props {
   leadId: string
   activities: Activity[]
   onUpdate: (activities: Activity[]) => void
+  onFollowupChange?: (date: string) => void
 }
 
 const ACTIVITY_TYPES: ActivityType[] = ['Called', 'Messaged', 'No answer', 'Note']
@@ -26,10 +28,11 @@ const typeColors: Record<ActivityType, string> = {
   Note: 'text-warning bg-warning/10',
 }
 
-export default function ActivityLog({ leadId, activities, onUpdate }: Props) {
+export default function ActivityLog({ leadId, activities, onUpdate, onFollowupChange }: Props) {
   const supabase = createClient()
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState<string | null>(null)
+  const [pendingBriefActivityId, setPendingBriefActivityId] = useState<string | null>(null)
 
   const logActivity = async (type: ActivityType) => {
     setLoading(type)
@@ -39,20 +42,18 @@ export default function ActivityLog({ leadId, activities, onUpdate }: Props) {
 
     const today = new Date().toISOString().split('T')[0]
 
-    // Log activity
     const { data: activity, error } = await supabase
       .from('activities')
       .insert({
         lead_id: leadId,
         type,
-        note: type === 'Note' ? note.trim() || null : note.trim() || null,
+        note: note.trim() || null,
         owner_id: user.id,
       })
       .select()
       .single()
 
     if (!error && activity) {
-      // Update last_contact and follow_up_count
       const nextFollowupDate = new Date()
       nextFollowupDate.setDate(nextFollowupDate.getDate() + (type === 'No answer' ? 2 : 3))
       const nextFollowup = nextFollowupDate.toISOString().split('T')[0]
@@ -68,6 +69,10 @@ export default function ActivityLog({ leadId, activities, onUpdate }: Props) {
 
       onUpdate([activity as Activity, ...activities])
       setNote('')
+
+      if (type === 'Called') {
+        setPendingBriefActivityId(activity.id)
+      }
     }
     setLoading(null)
   }
@@ -126,6 +131,19 @@ export default function ActivityLog({ leadId, activities, onUpdate }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Call brief modal — appears after every "Called" log */}
+      {pendingBriefActivityId && (
+        <CallBriefModal
+          leadId={leadId}
+          activityId={pendingBriefActivityId}
+          onSave={(nextStepDate) => {
+            setPendingBriefActivityId(null)
+            if (nextStepDate && onFollowupChange) onFollowupChange(nextStepDate)
+          }}
+          onSkip={() => setPendingBriefActivityId(null)}
+        />
+      )}
     </div>
   )
 }

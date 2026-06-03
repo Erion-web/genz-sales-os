@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Lead, Activity, Stage, getDealValue, formatCurrency, formatDate,
-  STAGE_COLORS, INTENT_COLORS, STAGES
+  Lead, Activity, Stage, CallBrief, getDealValue, formatCurrency, formatDate,
+  STAGE_COLORS, INTENT_COLORS, STAGES,
 } from '@/types'
 import LeadForm from '@/components/leads/LeadForm'
 import ActivityLog from '@/components/leads/ActivityLog'
@@ -19,12 +19,19 @@ const meetingLabels: Record<string, string> = {
   meeting1: 'First Meeting', meeting2: 'Second Meeting', meeting3: 'Closing Meeting',
 }
 
-export default function LeadDetail({ lead: initialLead, activities: initialActivities }: {
+const OBJECTION_LABEL: Record<string, string> = {
+  price: 'Price', has_other_agency: 'Has other agency', not_now: 'Not now',
+  no_budget: 'No budget', no_need: 'No need', other: 'Other',
+}
+
+export default function LeadDetail({ lead: initialLead, activities: initialActivities, initialCallBriefs = [] }: {
   lead: Lead
   activities: Activity[]
+  initialCallBriefs?: CallBrief[]
 }) {
   const [lead, setLead] = useState(initialLead)
   const [activities, setActivities] = useState(initialActivities)
+  const [callBriefs, setCallBriefs] = useState<CallBrief[]>(initialCallBriefs)
   const [showEdit, setShowEdit] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -55,8 +62,10 @@ export default function LeadDetail({ lead: initialLead, activities: initialActiv
   }
 
   const handleStageChange = async (stage: Stage) => {
-    await supabase.from('leads').update({ stage }).eq('id', lead.id)
-    setLead(prev => ({ ...prev, stage }))
+    const patch: Record<string, unknown> = { stage }
+    if (stage === 'Closed') patch.closed_at = new Date().toISOString()
+    await supabase.from('leads').update(patch).eq('id', lead.id)
+    setLead(prev => ({ ...prev, stage, ...(stage === 'Closed' ? { closed_at: new Date().toISOString() } : {}) }))
   }
 
   return (
@@ -242,8 +251,42 @@ export default function LeadDetail({ lead: initialLead, activities: initialActiv
                   last_contact: new Date().toISOString().split('T')[0],
                 }))
               }}
+              onFollowupChange={date => setLead(prev => ({ ...prev, next_followup: date }))}
             />
           </div>
+          {/* Call brief history */}
+          {callBriefs.length > 0 && (
+            <div className="card p-5">
+              <h3 className="text-xs text-tx-3 uppercase tracking-wider mb-4">Call History</h3>
+              <div className="space-y-3">
+                {callBriefs.map(b => (
+                  <div key={b.id} className="rounded-xl border border-border p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-tx-3">
+                        {new Date(b.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {b.contact_person && <span className="text-tx ml-1.5 font-medium">· {b.contact_person}</span>}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {b.interest_level && (
+                          <span className={`badge text-xs ${INTENT_COLORS[b.interest_level]}`}>{b.interest_level}</span>
+                        )}
+                        {b.objection && (
+                          <span className="badge bg-danger/10 text-danger text-xs">{OBJECTION_LABEL[b.objection] ?? b.objection}</span>
+                        )}
+                      </div>
+                    </div>
+                    {b.summary && <p className="text-sm text-tx-2 leading-relaxed">{b.summary}</p>}
+                    {b.next_step && (
+                      <p className="text-xs text-tx-3">
+                        <span className="text-accent font-medium">→</span> {b.next_step}
+                        {b.next_step_date && <span className="ml-1.5 text-warning">by {formatDate(b.next_step_date)}</span>}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Contact + Meetings */}

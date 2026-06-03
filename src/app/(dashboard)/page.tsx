@@ -1,6 +1,47 @@
 import { createClient } from '@/lib/supabase/server'
-import { Lead, getDealValue, formatCurrency, formatDate, STAGE_COLORS, INTENT_COLORS } from '@/types'
+import { Lead, GoalTarget, getDealValue, formatCurrency, formatDate, STAGE_COLORS, INTENT_COLORS } from '@/types'
 import Link from 'next/link'
+
+/* ── Helpers ──────────────────────────────────────────────── */
+function weekStart() {
+  const d = new Date()
+  const day = d.getDay()
+  const diff = (day === 0 ? -6 : 1 - day)
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString().split('T')[0]
+}
+
+/* ── Progress bar ─────────────────────────────────────────── */
+function GoalBar({
+  label, actual, target,
+}: { label: string; actual: number; target: number }) {
+  const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0
+  const barColor = pct >= 100 ? 'bg-success' : pct >= 50 ? 'bg-warning' : 'bg-danger'
+  const textColor = pct >= 100 ? 'text-success' : pct >= 50 ? 'text-warning' : 'text-danger'
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-tx-2 font-medium">{label}</span>
+        <span className={`text-xs font-bold tabular-nums ${textColor}`}>
+          {actual}<span className="text-tx-3 font-normal">/{target}</span>
+        </span>
+      </div>
+      <div className="h-1.5 bg-s3 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+/* ── Yesterday check ─────────────────────────────────────── */
+function YesterdayCheck({ hit, label }: { hit: boolean; label: string }) {
+  return (
+    <span className={`text-xs font-medium flex items-center gap-1 ${hit ? 'text-success' : 'text-danger'}`}>
+      {hit ? '✓' : '✗'} {label}
+    </span>
+  )
+}
 
 /* ── KPI Card ─────────────────────────────────────────────── */
 function KpiCard({
@@ -109,17 +150,91 @@ export default async function WarRoomPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   const today = new Date().toISOString().split('T')[0]
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
   const in48h = new Date(Date.now() + 48 * 3600000).toISOString().split('T')[0]
+  const wStart = weekStart()
 
-  const [{ data: allLeads }, { data: activities7d }, { data: profile }] = await Promise.all([
+  const [
+    { data: allLeads },
+    { data: activities7d },
+    { data: profile },
+    { data: goalTargetRow },
+    { data: todayActivities },
+    { data: weekActivities },
+    { data: yesterdayActivities },
+    { data: todayCalEvents },
+    { data: weekCalEvents },
+    { data: allProfiles },
+  ] = await Promise.all([
     supabase.from('leads').select('*').order('next_followup', { ascending: true }),
     supabase.from('activities').select('id, created_at')
       .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()),
-    supabase.from('profiles').select('full_name').eq('id', user!.id).single(),
+    supabase.from('profiles').select('full_name, role').eq('id', user!.id).single(),
+    supabase.from('goal_targets').select('*').eq('user_id', user!.id).single(),
+    // today's outreach activities
+    supabase.from('activities').select('id').eq('owner_id', user!.id)
+      .in('type', ['Called', 'Messaged'])
+      .gte('created_at', `${today}T00:00:00`).lte('created_at', `${today}T23:59:59`),
+    // this week's outreach activities
+    supabase.from('activities').select('id').eq('owner_id', user!.id)
+      .in('type', ['Called', 'Messaged'])
+      .gte('created_at', `${wStart}T00:00:00`),
+    // yesterday's outreach activities
+    supabase.from('activities').select('id').eq('owner_id', user!.id)
+      .in('type', ['Called', 'Messaged'])
+      .gte('created_at', `${yesterday}T00:00:00`).lte('created_at', `${yesterday}T23:59:59`),
+    // today's calendar events for user
+    supabase.from('calendar_events').select('id').eq('created_by', user!.id).eq('date', today),
+    // this week's calendar events for user
+    supabase.from('calendar_events').select('id').eq('created_by', user!.id).gte('date', wStart),
+    // all sales users for weekly leaderboard
+    supabase.from('profiles').select('id, full_name').eq('role', 'sales_user'),
   ])
 
   const leads = (allLeads || []) as Lead[]
   const firstName = profile?.full_name?.split(' ')[0] || 'there'
+  const isAdmin = profile?.role === 'admin'
+
+  // Default targets if row not yet created
+  const targets: GoalTarget = goalTargetRow ?? {
+    id: '', user_id: user!.id,
+    daily_companies: 12, daily_outreach: 10, daily_meetings: 1,
+    weekly_companies: 50, weekly_outreach: 40, weekly_meetings: 5, weekly_closed: 1,
+    updated_by: null, updated_at: null,
+  }
+
+  // Daily actuals for current user
+  const todayLeads = leads.filter(l =>
+    l.owner_id === user!.id && l.created_at.startsWith(today)
+  ).length
+  const todayOutreach = todayActivities?.length ?? 0
+  const todayMeetings = todayCalEvents?.length ?? 0
+
+  // Yesterday actuals (for recap)
+  const yesterdayLeads = leads.filter(l =>
+    l.owner_id === user!.id && l.created_at.startsWith(yesterday)
+  ).length
+  const yesterdayOutreach = yesterdayActivities?.length ?? 0
+  const yesterdayMeetings = 0 // calendar events are live, yesterday is gone
+
+  // Weekly actuals for current user
+  const weekLeads = leads.filter(l =>
+    l.owner_id === user!.id && l.created_at >= wStart
+  ).length
+  const weekOutreach = weekActivities?.length ?? 0
+  const weekMeetings = weekCalEvents?.length ?? 0
+  const weekClosed = leads.filter(l =>
+    l.owner_id === user!.id && l.stage === 'Closed' &&
+    (l.closed_at ? l.closed_at >= wStart : false)
+  ).length
+
+  // Weekly leaderboard — companies this week per user (admin sees all)
+  const leaderboard = isAdmin
+    ? (allProfiles || []).map(p => ({
+        name: p.full_name || 'Unknown',
+        companies: leads.filter(l => l.owner_id === p.id && l.created_at >= wStart).length,
+      })).sort((a, b) => b.companies - a.companies).slice(0, 5)
+    : []
 
   const active = leads.filter(l => !['Closed', 'Dead'].includes(l.stage))
   const overdue = active.filter(l => l.next_followup < today)
@@ -131,14 +246,12 @@ export default async function WarRoomPage() {
   const closedValue = closed.reduce((s, l) => s + getDealValue(l), 0)
   const closedMRR = closed.filter(l => l.deal_type === 'retainer').reduce((s, l) => s + (l.monthly || 0), 0)
 
-  // Meetings in next 48h
   const upcomingMeetings = leads.flatMap(l =>
     Object.entries(l.meetings || {})
       .filter(([, m]) => m?.date && m.date >= today && m.date <= in48h)
       .map(([slot, m]) => ({ lead: l, slot, meeting: m! }))
   ).sort((a, b) => (a.meeting.date! > b.meeting.date! ? 1 : -1))
 
-  // At risk: no contact in 3+ days
   const atRisk = active.filter(l => {
     if (!l.last_contact) return true
     return Math.floor((Date.now() - new Date(l.last_contact).getTime()) / 86400000) >= 3
@@ -171,6 +284,59 @@ export default async function WarRoomPage() {
           </svg>
           New Lead
         </Link>
+      </div>
+
+      {/* ── Daily Brief ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Today's targets */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading font-semibold text-sm text-tx">Today's Targets</h2>
+            <span className="text-xs text-tx-3">{new Date().toLocaleDateString('en-GB', { weekday: 'long' })}</span>
+          </div>
+          <GoalBar label="Companies" actual={todayLeads} target={targets.daily_companies} />
+          <GoalBar label="Outreach (calls + messages)" actual={todayOutreach} target={targets.daily_outreach} />
+          <GoalBar label="Meetings" actual={todayMeetings} target={targets.daily_meetings} />
+
+          {/* Yesterday recap */}
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-tx-3 font-medium mb-2">Yesterday recap</p>
+            <div className="flex items-center gap-4">
+              <YesterdayCheck hit={yesterdayLeads >= targets.daily_companies} label="Companies" />
+              <YesterdayCheck hit={yesterdayOutreach >= targets.daily_outreach} label="Outreach" />
+              <YesterdayCheck hit={yesterdayMeetings >= targets.daily_meetings} label="Meetings" />
+            </div>
+          </div>
+        </div>
+
+        {/* Weekly goals */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading font-semibold text-sm text-tx">Weekly Goals</h2>
+            <Link href="/outreach" className="text-xs text-accent hover:underline">Log outreach →</Link>
+          </div>
+          <GoalBar label="Companies" actual={weekLeads} target={targets.weekly_companies} />
+          <GoalBar label="Outreach" actual={weekOutreach} target={targets.weekly_outreach} />
+          <GoalBar label="Meetings" actual={weekMeetings} target={targets.weekly_meetings} />
+          <GoalBar label="Closed" actual={weekClosed} target={targets.weekly_closed} />
+
+          {/* Admin leaderboard */}
+          {isAdmin && leaderboard.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-xs text-tx-3 font-medium mb-2">Companies this week</p>
+              <div className="space-y-1">
+                {leaderboard.map((row, i) => (
+                  <div key={row.name} className="flex items-center gap-2">
+                    <span className="text-xs text-tx-3 w-4">{i + 1}</span>
+                    <span className="text-xs text-tx flex-1 truncate">{row.name}</span>
+                    <span className="text-xs font-bold text-accent tabular-nums">{row.companies}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* KPI Grid */}

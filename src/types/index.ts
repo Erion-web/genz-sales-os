@@ -38,6 +38,7 @@ export interface Lead {
   last_contact: string | null
   follow_up_count: number
   created_at: string
+  closed_at: string | null
 }
 
 export interface Activity {
@@ -139,6 +140,57 @@ export const INTENT_COLORS: Record<Intent, string> = {
   warm: 'text-warning bg-warning/10',
   hot: 'text-danger bg-danger/10',
   urgent: 'text-accent bg-accent/10',
+}
+
+export type Objection = 'price' | 'has_other_agency' | 'not_now' | 'no_budget' | 'no_need' | 'other'
+
+export interface GoalTarget {
+  id: string
+  user_id: string
+  daily_companies: number
+  daily_outreach: number
+  daily_meetings: number
+  weekly_companies: number
+  weekly_outreach: number
+  weekly_meetings: number
+  weekly_closed: number
+  updated_by: string | null
+  updated_at: string | null
+}
+
+export interface CallBrief {
+  id: string
+  lead_id: string
+  user_id: string
+  activity_id: string | null
+  contact_person: string | null
+  summary: string | null
+  interest_level: Intent | null
+  objection: Objection | null
+  objection_note: string | null
+  next_step: string | null
+  next_step_date: string | null
+  created_at: string
+}
+
+export interface EmailOutreachLog {
+  id: string
+  user_id: string
+  log_date: string
+  tool: string
+  emails_sent: number
+  replies: number
+  note: string | null
+  proof_url: string | null
+  created_at: string
+}
+
+export interface NotificationTemplate {
+  id: string
+  tier: 'on_pace' | 'behind' | 'critical'
+  subject: string
+  body: string
+  updated_at: string
 }
 
 export const STAGE_COLORS: Record<Stage, string> = {
