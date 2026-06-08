@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Lead, GoalTarget, getDealValue, formatCurrency, formatDate, STAGE_COLORS, INTENT_COLORS } from '@/types'
 import Link from 'next/link'
+import DailyBriefClient from './DailyBriefClient'
 
 /* ── Helpers ──────────────────────────────────────────────── */
 function weekStart() {
@@ -10,37 +11,6 @@ function weekStart() {
   d.setDate(d.getDate() + diff)
   d.setHours(0, 0, 0, 0)
   return d.toISOString().split('T')[0]
-}
-
-/* ── Progress bar ─────────────────────────────────────────── */
-function GoalBar({
-  label, actual, target,
-}: { label: string; actual: number; target: number }) {
-  const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0
-  const barColor = pct >= 100 ? 'bg-success' : pct >= 50 ? 'bg-warning' : 'bg-danger'
-  const textColor = pct >= 100 ? 'text-success' : pct >= 50 ? 'text-warning' : 'text-danger'
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-tx-2 font-medium">{label}</span>
-        <span className={`text-xs font-bold tabular-nums ${textColor}`}>
-          {actual}<span className="text-tx-3 font-normal">/{target}</span>
-        </span>
-      </div>
-      <div className="h-1.5 bg-s3 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  )
-}
-
-/* ── Yesterday check ─────────────────────────────────────── */
-function YesterdayCheck({ hit, label }: { hit: boolean; label: string }) {
-  return (
-    <span className={`text-xs font-medium flex items-center gap-1 ${hit ? 'text-success' : 'text-danger'}`}>
-      {hit ? '✓' : '✗'} {label}
-    </span>
-  )
 }
 
 /* ── KPI Card ─────────────────────────────────────────────── */
@@ -286,58 +256,21 @@ export default async function WarRoomPage() {
         </Link>
       </div>
 
-      {/* ── Daily Brief ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* Today's targets */}
-        <div className="card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-heading font-semibold text-sm text-tx">Today's Targets</h2>
-            <span className="text-xs text-tx-3">{new Date().toLocaleDateString('en-GB', { weekday: 'long' })}</span>
-          </div>
-          <GoalBar label="Companies" actual={todayLeads} target={targets.daily_companies} />
-          <GoalBar label="Outreach (calls + messages)" actual={todayOutreach} target={targets.daily_outreach} />
-          <GoalBar label="Meetings" actual={todayMeetings} target={targets.daily_meetings} />
-
-          {/* Yesterday recap */}
-          <div className="pt-2 border-t border-border">
-            <p className="text-xs text-tx-3 font-medium mb-2">Yesterday recap</p>
-            <div className="flex items-center gap-4">
-              <YesterdayCheck hit={yesterdayLeads >= targets.daily_companies} label="Companies" />
-              <YesterdayCheck hit={yesterdayOutreach >= targets.daily_outreach} label="Outreach" />
-              <YesterdayCheck hit={yesterdayMeetings >= targets.daily_meetings} label="Meetings" />
-            </div>
-          </div>
-        </div>
-
-        {/* Weekly goals */}
-        <div className="card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-heading font-semibold text-sm text-tx">Weekly Goals</h2>
-            <Link href="/outreach" className="text-xs text-accent hover:underline">Log outreach →</Link>
-          </div>
-          <GoalBar label="Companies" actual={weekLeads} target={targets.weekly_companies} />
-          <GoalBar label="Outreach" actual={weekOutreach} target={targets.weekly_outreach} />
-          <GoalBar label="Meetings" actual={weekMeetings} target={targets.weekly_meetings} />
-          <GoalBar label="Closed" actual={weekClosed} target={targets.weekly_closed} />
-
-          {/* Admin leaderboard */}
-          {isAdmin && leaderboard.length > 0 && (
-            <div className="pt-2 border-t border-border">
-              <p className="text-xs text-tx-3 font-medium mb-2">Companies this week</p>
-              <div className="space-y-1">
-                {leaderboard.map((row, i) => (
-                  <div key={row.name} className="flex items-center gap-2">
-                    <span className="text-xs text-tx-3 w-4">{i + 1}</span>
-                    <span className="text-xs text-tx flex-1 truncate">{row.name}</span>
-                    <span className="text-xs font-bold text-accent tabular-nums">{row.companies}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* ── Daily Brief (live) ──────────────────────────────── */}
+      <DailyBriefClient
+        userId={user!.id}
+        targets={targets}
+        initialCounts={{
+          todayLeads, todayOutreach, todayMeetings,
+          weekLeads, weekOutreach, weekMeetings, weekClosed,
+          yesterdayLeads, yesterdayOutreach,
+        }}
+        wStart={wStart}
+        today={today}
+        yesterday={yesterday}
+        isAdmin={isAdmin}
+        leaderboard={leaderboard}
+      />
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
