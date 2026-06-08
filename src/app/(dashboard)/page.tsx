@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Lead, GoalTarget, getDealValue, formatCurrency, formatDate, STAGE_COLORS, INTENT_COLORS } from '@/types'
 import Link from 'next/link'
 import DailyBriefClient from './DailyBriefClient'
+import AdminTeamToday from './AdminTeamToday'
 
 /* ── Helpers ──────────────────────────────────────────────── */
 function weekStart() {
@@ -135,6 +136,7 @@ export default async function WarRoomPage() {
     { data: todayCalEvents },
     { data: weekCalEvents },
     { data: allProfiles },
+    { data: teamTodayActivities },
   ] = await Promise.all([
     supabase.from('leads').select('*').order('next_followup', { ascending: true }),
     supabase.from('activities').select('id, created_at')
@@ -159,6 +161,11 @@ export default async function WarRoomPage() {
     supabase.from('calendar_events').select('id').eq('created_by', user!.id).gte('date', wStart),
     // all sales users for weekly leaderboard
     supabase.from('profiles').select('id, full_name').eq('role', 'sales_user'),
+    // team today — all reps' outreach activities (admin sees all via RLS)
+    supabase.from('activities').select('id, owner_id, type, created_at')
+      .in('type', ['Called', 'Messaged'])
+      .gte('created_at', `${today}T00:00:00`).lte('created_at', `${today}T23:59:59`)
+      .order('created_at', { ascending: false }),
   ])
 
   const leads = (allLeads || []) as Lead[]
@@ -204,6 +211,22 @@ export default async function WarRoomPage() {
         name: p.full_name || 'Unknown',
         companies: leads.filter(l => l.owner_id === p.id && l.created_at >= wStart).length,
       })).sort((a, b) => b.companies - a.companies).slice(0, 5)
+    : []
+
+  // Admin team-today stats
+  const initialTeamStats = isAdmin
+    ? (allProfiles || []).map(p => {
+        const repActs = (teamTodayActivities || []).filter(a => a.owner_id === p.id)
+        const lastAct = repActs[0]?.created_at ?? null // already ordered desc
+        return {
+          userId:      p.id,
+          name:        p.full_name || 'Unknown',
+          companies:   leads.filter(l => l.owner_id === p.id && l.created_at.startsWith(today)).length,
+          calls:       repActs.filter(a => a.type === 'Called').length,
+          messages:    repActs.filter(a => a.type === 'Messaged').length,
+          lastActiveAt: lastAct,
+        }
+      })
     : []
 
   const active = leads.filter(l => !['Closed', 'Dead'].includes(l.stage))
@@ -271,6 +294,11 @@ export default async function WarRoomPage() {
         isAdmin={isAdmin}
         leaderboard={leaderboard}
       />
+
+      {/* ── Admin: Team Today (live) ─────────────────────────── */}
+      {isAdmin && initialTeamStats.length > 0 && (
+        <AdminTeamToday initialStats={initialTeamStats} today={today} />
+      )}
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
