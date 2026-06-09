@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -10,6 +10,7 @@ import {
 } from '@/types'
 import LeadForm from '@/components/leads/LeadForm'
 import ActivityLog from '@/components/leads/ActivityLog'
+import { track } from '@/lib/track'
 
 const intentEmoji: Record<string, string> = {
   cold: '🧊', warm: '🔥', hot: '🚀', urgent: '⚡',
@@ -35,6 +36,11 @@ export default function LeadDetail({ lead: initialLead, activities: initialActiv
   const [showEdit, setShowEdit] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  useEffect(() => {
+    track('lead_view', `Viewed lead: ${initialLead.name}${initialLead.company ? ` (${initialLead.company})` : ''}`)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const value = getDealValue(lead)
   const today = new Date().toISOString().split('T')[0]
@@ -66,6 +72,7 @@ export default function LeadDetail({ lead: initialLead, activities: initialActiv
     if (stage === 'Closed') patch.closed_at = new Date().toISOString()
     await supabase.from('leads').update(patch).eq('id', lead.id)
     setLead(prev => ({ ...prev, stage, ...(stage === 'Closed' ? { closed_at: new Date().toISOString() } : {}) }))
+    track('stage_change', `Moved ${lead.name} → ${stage}`)
   }
 
   return (

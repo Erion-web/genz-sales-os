@@ -6,6 +6,7 @@ import {
   Lead, Stage, Intent, Source, Service,
   STAGES, SOURCES, SERVICES, INTENTS,
 } from '@/types'
+import { track } from '@/lib/track'
 
 interface Props {
   lead?: Lead
@@ -172,6 +173,7 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
         .select()
         .single()
       if (error) { setError(error.message); setLoading(false); return }
+      track('lead_edit', `Edited lead: ${payload.name}${payload.company ? ` (${payload.company})` : ''}`)
       onSave(data as Lead)
     } else {
       const { data, error } = await supabase
@@ -180,6 +182,7 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
         .select()
         .single()
       if (error) { setError(error.message); setLoading(false); return }
+      track('lead_create', `Created lead: ${payload.name}${payload.company ? ` (${payload.company})` : ''}`)
       onSave(data as Lead)
     }
     setLoading(false)

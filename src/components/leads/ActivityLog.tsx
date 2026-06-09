@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Activity, ActivityType, formatDate } from '@/types'
 import CallBriefModal from './CallBriefModal'
+import { track } from '@/lib/track'
 
 interface Props {
   leadId: string
@@ -69,6 +70,7 @@ export default function ActivityLog({ leadId, activities, onUpdate, onFollowupCh
 
       onUpdate([activity as Activity, ...activities])
       setNote('')
+      track('activity_log', `Logged ${type}${note.trim() ? ` — "${note.trim().slice(0, 60)}"` : ''}`)
 
       if (type === 'Called') {
         setPendingBriefActivityId(activity.id)

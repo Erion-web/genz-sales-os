@@ -3,6 +3,7 @@ import { Lead, GoalTarget, getDealValue, formatCurrency, formatDate, STAGE_COLOR
 import Link from 'next/link'
 import DailyBriefClient from './DailyBriefClient'
 import AdminTeamToday from './AdminTeamToday'
+import AdminActivityFeed from './AdminActivityFeed'
 
 /* ── Helpers ──────────────────────────────────────────────── */
 function weekStart() {
@@ -213,6 +214,11 @@ export default async function WarRoomPage() {
       })).sort((a, b) => b.companies - a.companies).slice(0, 5)
     : []
 
+  // userId → name map for admin feed
+  const userMap = Object.fromEntries(
+    (allProfiles || []).map(p => [p.id, p.full_name ?? 'Unknown'])
+  )
+
   // Admin team-today stats
   const initialTeamStats = isAdmin
     ? (allProfiles || []).map(p => {
@@ -298,6 +304,11 @@ export default async function WarRoomPage() {
       {/* ── Admin: Team Today (live) ─────────────────────────── */}
       {isAdmin && initialTeamStats.length > 0 && (
         <AdminTeamToday initialStats={initialTeamStats} today={today} />
+      )}
+
+      {/* ── Admin: Live Activity Feed ────────────────────────── */}
+      {isAdmin && (
+        <AdminActivityFeed userMap={userMap} />
       )}
 
       {/* KPI Grid */}

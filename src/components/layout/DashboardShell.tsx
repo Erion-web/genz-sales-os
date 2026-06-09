@@ -5,6 +5,7 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import BottomNav from './BottomNav'
 import RealtimeRefresher from './RealtimeRefresher'
+import PageTracker from './PageTracker'
 import { Profile } from '@/types'
 
 export default function DashboardShell({
@@ -27,6 +28,7 @@ export default function DashboardShell({
       </div>
       <BottomNav />
       <RealtimeRefresher />
+      <PageTracker />
     </div>
   )
 }
