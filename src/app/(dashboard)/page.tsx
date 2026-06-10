@@ -236,9 +236,10 @@ export default async function WarRoomPage() {
     : []
 
   const active = leads.filter(l => !['Closed', 'Dead'].includes(l.stage))
-  const overdue = active.filter(l => l.next_followup < today)
-  const dueToday = active.filter(l => l.next_followup === today)
-  const upcoming48 = active.filter(l => l.next_followup > today && l.next_followup <= in48h)
+  const activeWithDate = active.filter(l => l.next_followup && l.next_followup !== '2099-12-31')
+  const overdue = activeWithDate.filter(l => l.next_followup < today)
+  const dueToday = activeWithDate.filter(l => l.next_followup === today)
+  const upcoming48 = activeWithDate.filter(l => l.next_followup > today && l.next_followup <= in48h)
   const closed = leads.filter(l => l.stage === 'Closed')
 
   const pipelineValue = active.reduce((s, l) => s + getDealValue(l), 0)

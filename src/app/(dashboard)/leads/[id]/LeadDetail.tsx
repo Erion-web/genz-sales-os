@@ -44,8 +44,9 @@ export default function LeadDetail({ lead: initialLead, activities: initialActiv
 
   const value = getDealValue(lead)
   const today = new Date().toISOString().split('T')[0]
-  const isOverdue = lead.next_followup < today
-  const isToday = lead.next_followup === today
+  const noFollowup = !lead.next_followup || lead.next_followup === '2099-12-31'
+  const isOverdue = !noFollowup && lead.next_followup < today
+  const isToday = !noFollowup && lead.next_followup === today
 
   const phone = lead.phone?.replace(/\s/g, '')
   const waMsg = encodeURIComponent(`Hi ${lead.name}, following up from GENZ Digital Marketing. `)
@@ -99,13 +100,15 @@ export default function LeadDetail({ lead: initialLead, activities: initialActiv
                     {intentEmoji[lead.intent]} {lead.intent}
                   </span>
                   {lead.source && <span className="badge bg-s3 text-tx-3">{lead.source}</span>}
-                  <span className={`badge ${
-                    isOverdue ? 'bg-danger/15 text-danger' :
-                    isToday ? 'bg-warning/15 text-warning' :
-                    'bg-success/10 text-success'
-                  }`}>
-                    {isOverdue ? '⚠️ Overdue' : isToday ? '📅 Today' : '✅'} {formatDate(lead.next_followup)}
-                  </span>
+                  {!noFollowup && (
+                    <span className={`badge ${
+                      isOverdue ? 'bg-danger/15 text-danger' :
+                      isToday ? 'bg-warning/15 text-warning' :
+                      'bg-success/10 text-success'
+                    }`}>
+                      {isOverdue ? '⚠️ Overdue' : isToday ? '📅 Today' : '✅'} {formatDate(lead.next_followup)}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">

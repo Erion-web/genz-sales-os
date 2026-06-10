@@ -124,10 +124,6 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
     e.preventDefault()
     setError(null)
 
-    if (!form.next_followup) {
-      setError('Next follow-up date is required.')
-      return
-    }
     if (!form.name.trim()) {
       setError('Lead name is required.')
       return
@@ -159,7 +155,7 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
       intent: form.intent as Intent,
       services: form.services.length > 0 ? form.services : null,
       meetings: form.meetings,
-      next_followup: form.next_followup,
+      next_followup: form.next_followup || '2099-12-31',
       last_contact: form.last_contact || null,
       follow_up_count: form.follow_up_count,
       owner_name: form.owner_name || null,
@@ -378,8 +374,8 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
             <h3 className="text-xs text-tx-3 uppercase tracking-wider mb-3">Follow-up</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-tx-3 mb-1">Next Follow-up *</label>
-                <input type="date" value={form.next_followup} onChange={e => setForm(p => ({ ...p, next_followup: e.target.value }))} required />
+                <label className="block text-xs text-tx-3 mb-1">Next Follow-up <span className="text-tx-3 font-normal">(optional)</span></label>
+                <input type="date" value={form.next_followup} onChange={e => setForm(p => ({ ...p, next_followup: e.target.value }))} />
               </div>
               <div>
                 <label className="block text-xs text-tx-3 mb-1">Last Contact</label>
