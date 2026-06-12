@@ -44,7 +44,7 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
     source: lead?.source || '',
     stage: lead?.stage || 'New',
     intent: lead?.intent || 'cold',
-    services: lead?.services || [],
+    services: (lead?.services || []).filter(s => SERVICES.includes(s)),
     next_followup: lead?.next_followup || '',
     last_contact: lead?.last_contact || '',
     owner_name: lead?.owner_name || '',
@@ -55,6 +55,12 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
     },
     follow_up_count: lead?.follow_up_count || 0,
   })
+
+  // "Other" free-text — any existing service not in the standard list
+  const STANDARD_SERVICES = ['Meta Ads', 'Google Ads', 'TikTok Ads', 'Social Media', 'Branding', 'Web Dev', 'E-Commerce', 'Automation', 'Video', 'SEO']
+  const existingCustom = (lead?.services || []).filter(s => !STANDARD_SERVICES.includes(s)).join(', ')
+  const [otherText, setOtherText] = useState(existingCustom)
+  const [showOther, setShowOther] = useState(!!existingCustom)
 
   // Auto-fill owner_name from logged-in profile
   useEffect(() => {
@@ -153,7 +159,10 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
       source: form.source || null,
       stage: form.stage as Stage,
       intent: form.intent as Intent,
-      services: form.services.length > 0 ? form.services : null,
+      services: (() => {
+        const all = [...form.services, ...(otherText.trim() ? [otherText.trim()] : [])]
+        return all.length > 0 ? all : null
+      })(),
       meetings: form.meetings,
       next_followup: form.next_followup || '2099-12-31',
       last_contact: form.last_contact || null,
@@ -366,7 +375,29 @@ export default function LeadForm({ lead, onSave, onCancel }: Props) {
                   {s}
                 </button>
               ))}
+              {/* Other */}
+              <button
+                type="button"
+                onClick={() => { setShowOther(p => { if (p) setOtherText(''); return !p }) }}
+                className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
+                  showOther
+                    ? 'bg-accent/20 border-accent text-accent'
+                    : 'border-border text-tx-3 hover:border-s3'
+                }`}
+              >
+                + Other
+              </button>
             </div>
+            {showOther && (
+              <input
+                type="text"
+                className="mt-2 w-full"
+                placeholder="e.g. Photography, Event Management, Consulting…"
+                value={otherText}
+                onChange={e => setOtherText(e.target.value)}
+                autoFocus
+              />
+            )}
           </section>
 
           {/* Follow-up */}

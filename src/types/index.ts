@@ -3,7 +3,7 @@ export type Stage = 'New' | 'Contacted' | 'Follow-up 1' | 'Follow-up 2' | 'Negot
 export type Intent = 'cold' | 'warm' | 'hot' | 'urgent'
 export type ActivityType = 'Called' | 'Messaged' | 'No answer' | 'Note'
 export type Source = 'Referral' | 'Cold outreach' | 'Instagram' | 'TikTok' | 'LinkedIn' | 'Facebook' | 'Website' | 'Other'
-export type Service = 'Meta Ads' | 'Google Ads' | 'TikTok Ads' | 'Social Media' | 'Branding' | 'Web Dev' | 'E-Commerce' | 'Automation' | 'Video' | 'SEO'
+export type Service = 'Meta Ads' | 'Google Ads' | 'TikTok Ads' | 'Social Media' | 'Branding' | 'Web Dev' | 'E-Commerce' | 'Automation' | 'Video' | 'SEO' | string
 export type Role = 'admin' | 'sales_user'
 
 export interface Meeting {
